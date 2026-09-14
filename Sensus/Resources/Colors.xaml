@@ -1,0 +1,40 @@
+﻿<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <!--  Radix Slate  -->
+    <Color x:Key="Slate1Color">#FCFCFD</Color>
+    <Color x:Key="Slate2Color">#F9F9FB</Color>
+    <Color x:Key="Slate3Color">#F0F0F3</Color>
+    <Color x:Key="Slate4Color">#E8E8EC</Color>
+    <Color x:Key="Slate5Color">#E0E1E6</Color>
+    <Color x:Key="Slate6Color">#D9D9E0</Color>
+    <Color x:Key="Slate7Color">#CDCED6</Color>
+    <Color x:Key="Slate8Color">#B9BBC6</Color>
+    <Color x:Key="Slate9Color">#8B8D98</Color>
+    <Color x:Key="Slate10Color">#80838D</Color>
+    <Color x:Key="Slate11Color">#60646C</Color>
+    <Color x:Key="Slate12Color">#1C2024</Color>
+
+    <!--  Radix Red  -->
+    <Color x:Key="Red9Color">#E5484D</Color>
+    <Color x:Key="Red10Color">#DC3E42</Color>
+
+    <!--  Accent  -->
+    <Color x:Key="AccentColor">#008000</Color>
+    <Color x:Key="ErrorColor">#FF4500</Color>
+
+    <!--  Semantic brushes  -->
+    <SolidColorBrush x:Key="TextBrush" Color="{StaticResource Slate12Color}" />
+    <SolidColorBrush x:Key="BackgroundBrush" Color="{StaticResource Slate3Color}" />
+    <SolidColorBrush x:Key="BackgroundGridLineBrush" Color="{StaticResource Slate7Color}" />
+    <SolidColorBrush x:Key="ShellBrush" Color="{StaticResource Slate5Color}" />
+    <SolidColorBrush x:Key="WorkspaceBrush" Color="{StaticResource Slate4Color}" />
+    <SolidColorBrush x:Key="AppSurfaceBrush" Color="{StaticResource Slate2Color}" />
+    <SolidColorBrush x:Key="PanelBrush" Color="{StaticResource Slate1Color}" />
+    <SolidColorBrush x:Key="BorderSubtleBrush" Color="{StaticResource Slate6Color}" />
+    <SolidColorBrush x:Key="BorderBrush" Color="{StaticResource Slate7Color}" />
+    <SolidColorBrush x:Key="BorderStrongBrush" Color="{StaticResource Slate8Color}" />
+    <SolidColorBrush x:Key="SeparatorBrush" Color="{StaticResource Slate7Color}" />
+    <SolidColorBrush x:Key="AccentBrush" Color="{StaticResource AccentColor}" />
+    <SolidColorBrush x:Key="ErrorBrush" Color="{StaticResource ErrorColor}" />
+    <SolidColorBrush x:Key="CaptionCloseHoverBrush" Color="{StaticResource Red9Color}" />
+    <SolidColorBrush x:Key="CaptionClosePressedBrush" Color="{StaticResource Red10Color}" />
+</ResourceDictionary>

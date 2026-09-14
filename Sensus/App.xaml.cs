@@ -8,5 +8,4 @@ namespace Sensus
     public partial class App : Application
     {
     }
-
 }

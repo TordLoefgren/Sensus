@@ -4,10 +4,137 @@
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    xmlns:shell="clr-namespace:System.Windows.Shell;assembly=PresentationFramework"
     Title="Sensus"
-    Width="800"
-    Height="450"
+    Width="1400"
+    Height="850"
+    MinWidth="1000"
+    MinHeight="650"
+    Background="{StaticResource ShellBrush}"
+    Foreground="{StaticResource TextBrush}"
+    WindowStyle="None"
     mc:Ignorable="d">
 
-    <Grid />
+    <shell:WindowChrome.WindowChrome>
+        <shell:WindowChrome
+            CaptionHeight="36"
+            CornerRadius="0"
+            GlassFrameThickness="0"
+            ResizeBorderThickness="6"
+            UseAeroCaptionButtons="False" />
+    </shell:WindowChrome.WindowChrome>
+
+
+    <Grid Background="{StaticResource ShellBrush}">
+
+        <Grid.RowDefinitions>
+            <!--  Window chrome  -->
+            <RowDefinition Height="36" />
+
+            <!--  Workspace  -->
+            <RowDefinition Height="*" />
+
+            <!--  Status bar  -->
+            <RowDefinition Height="30" />
+        </Grid.RowDefinitions>
+
+
+        <!--  ==================== Window Chrome ====================  -->
+
+        <Border
+            Grid.Row="0"
+            Background="{StaticResource AppSurfaceBrush}"
+            BorderBrush="{StaticResource BorderBrush}"
+            BorderThickness="0,0,0,1">
+
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+
+
+                <!--  Title  -->
+
+                <TextBlock
+                    Grid.Column="0"
+                    Margin="12,0"
+                    VerticalAlignment="Center"
+                    FontSize="15"
+                    FontWeight="SemiBold"
+                    Text="Sensus" />
+
+
+                <!--  Window controls  -->
+
+                <StackPanel Grid.Column="1" shell:WindowChrome.IsHitTestVisibleInChrome="True" Orientation="Horizontal">
+                    <Button Click="MinimizeButton_Click" Style="{StaticResource MinimizeButtonStyle}" />
+
+                    <Button Click="MaximizeRestoreButton_Click" Style="{StaticResource MaximizeRestoreButtonStyle}" />
+
+                    <Button Click="CloseButton_Click" Style="{StaticResource CloseButtonStyle}" />
+
+                </StackPanel>
+
+            </Grid>
+
+        </Border>
+
+
+        <!--  ==================== Workspace ====================  -->
+
+        <Grid Grid.Row="1" Background="{StaticResource WorkspaceBrush}">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="2*" />
+                <ColumnDefinition Width="*" />
+            </Grid.ColumnDefinitions>
+
+
+            <!--  Viewport  -->
+
+            <Border
+                Grid.Column="0"
+                Margin="10"
+                Background="{StaticResource PanelBrush}"
+                BorderBrush="{StaticResource BorderBrush}"
+                BorderThickness="1"
+                CornerRadius="4">
+
+                <Canvas
+                    x:Name="ViewportCanvas"
+                    Margin="10"
+                    HorizontalAlignment="Stretch"
+                    VerticalAlignment="Stretch"
+                    Background="{StaticResource BorderStrongBrush}" />
+
+            </Border>
+
+
+            <!--  Side panel  -->
+
+            <Border
+                Grid.Column="1"
+                Margin="0,10,10,10"
+                Background="{StaticResource PanelBrush}"
+                BorderBrush="{StaticResource BorderBrush}"
+                BorderThickness="1"
+                CornerRadius="4" />
+
+        </Grid>
+
+
+        <!--  ==================== Status bar ====================  -->
+
+        <Border
+            Grid.Row="2"
+            Background="{StaticResource AppSurfaceBrush}"
+            BorderBrush="{StaticResource BorderBrush}"
+            BorderThickness="0,1,0,0">
+
+            <StackPanel />
+
+        </Border>
+
+    </Grid>
+
 </Window>
