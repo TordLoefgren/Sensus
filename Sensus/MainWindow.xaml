@@ -12,7 +12,6 @@
     MinHeight="650"
     Background="{StaticResource ShellBrush}"
     Foreground="{StaticResource TextBrush}"
-    WindowStyle="None"
     mc:Ignorable="d">
 
     <shell:WindowChrome.WindowChrome>
@@ -25,7 +24,7 @@
     </shell:WindowChrome.WindowChrome>
 
 
-    <Grid Background="{StaticResource ShellBrush}">
+    <Grid x:Name="WindowLayout" Background="{StaticResource ShellBrush}">
 
         <Grid.RowDefinitions>
             <!--  Window chrome  -->
@@ -132,9 +131,6 @@
             BorderThickness="0,1,0,0">
 
             <StackPanel />
-
         </Border>
-
     </Grid>
-
 </Window>
