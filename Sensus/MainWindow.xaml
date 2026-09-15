@@ -12,6 +12,9 @@
     MinHeight="650"
     Background="{StaticResource ShellBrush}"
     Foreground="{StaticResource TextBrush}"
+    Icon="/Assets/SensusGlyph.ico"
+    SnapsToDevicePixels="True"
+    UseLayoutRounding="True"
     mc:Ignorable="d">
 
     <shell:WindowChrome.WindowChrome>
@@ -55,14 +58,25 @@
 
                 <!--  Title  -->
 
-                <TextBlock
+                <StackPanel
                     Grid.Column="0"
-                    Margin="12,0"
+                    Margin="10,0,0,0"
                     VerticalAlignment="Center"
-                    FontSize="15"
-                    FontWeight="SemiBold"
-                    Text="Sensus" />
+                    Orientation="Horizontal">
 
+                    <Control
+                        Width="17"
+                        Height="17"
+                        Margin="0,1,8,0"
+                        Style="{StaticResource SensusGlyphStyle}" />
+
+                    <TextBlock
+                        VerticalAlignment="Center"
+                        FontSize="15"
+                        FontWeight="SemiBold"
+                        Text="Sensus" />
+
+                </StackPanel>
 
                 <!--  Window controls  -->
 

@@ -1,0 +1,68 @@
+﻿<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+    <!--  ==================== Sensus ====================  -->
+
+    <Geometry x:Key="SensusGlyphHalfGeometry">
+        m 22,5
+        0,-4
+        c 0,0
+        -34,-0.25
+        -13.9,12
+        3.5,2.1
+        -8.5,-7
+        0.85,-8
+        5.3,-0.9
+        13,0
+        13,0
+        z
+    </Geometry>
+
+
+    <ControlTemplate x:Key="SensusGlyphTemplate" TargetType="Control">
+
+        <Viewbox Stretch="Uniform">
+
+            <Canvas Width="24" Height="24">
+
+                <!--  Upper half  -->
+
+                <Path Data="{StaticResource SensusGlyphHalfGeometry}" Fill="{TemplateBinding Foreground}" />
+
+
+                <!--  Lower half  -->
+
+                <Path Data="{StaticResource SensusGlyphHalfGeometry}" Fill="{TemplateBinding Foreground}">
+
+                    <Path.RenderTransform>
+                        <RotateTransform Angle="180" CenterX="12" CenterY="12" />
+                    </Path.RenderTransform>
+
+                </Path>
+
+
+                <!--  Sensor  -->
+
+                <Ellipse
+                    Canvas.Left="9"
+                    Canvas.Top="9"
+                    Width="5"
+                    Height="5"
+                    Fill="{TemplateBinding Foreground}" />
+
+            </Canvas>
+
+        </Viewbox>
+
+    </ControlTemplate>
+
+
+    <Style x:Key="SensusGlyphStyle" TargetType="Control">
+
+        <Setter Property="Foreground" Value="{StaticResource TextBrush}" />
+        <Setter Property="Focusable" Value="False" />
+        <Setter Property="IsHitTestVisible" Value="False" />
+        <Setter Property="Template" Value="{StaticResource SensusGlyphTemplate}" />
+
+    </Style>
+
+</ResourceDictionary>

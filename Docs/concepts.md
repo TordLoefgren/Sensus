@@ -5,53 +5,22 @@ and naming conventions. It provides a shared vocabulary for the application
 and its code. Open questions, proposed changes, and decision discussions are
 tracked in GitHub issues.
 
-## Grid terminology
-
-### Grid size
-
-The grid size is its complete physical width and height. Sensus currently
-uses metres as its canonical physical unit. A grid may therefore cover an area
-such as eight metres by four metres.
-
-### Cell size
-
-Cell size is the physical side length of a square grid cell, expressed in
-metres per cell. It is also referred to as the grid's spatial resolution.
-A cell size of 0.05 metres represents a square measuring 5 centimetres on
-each side.
-
-### Grid dimensions
-
-Grid dimensions are the number of columns and rows, expressed in cells. A
-grid that is eight metres wide and four metres high, with half a metre per
-cell, has sixteen columns and eight rows.
-
-### Total cells
-
-The total cell count is the number of columns multiplied by the number of
-rows. A grid with sixteen columns and eight rows therefore contains 128 cells.
-
-### Metres per cell
-
-Metres per cell is the conversion scale between physical map coordinates and
-grid coordinates. It is retained by the model because column and row counts
-alone do not say how much physical space the occupancy map represents.
-
-Rendered pixels per cell are separate from metres per cell. Pixel size is
-determined by the viewport, zoom, and available screen area.
+The terminology below describes the proposed Mk. 1-A design. Sample structures,
+field names, and conventions are not yet implemented and may change as the
+first experiments establish what is needed.
 
 ## Sensus terminology
 
 ### Hardware
 
-The initial scanner prototype consists of:
+The planned Mk. 1-A scanner uses:
 
 - [HC-SR04 ultrasonic ranging sensor](<Datasheets/HC-SR04 Ultrasonic Sensor Module.pdf>)
 - [SG90 servo motor](<Datasheets/SG90 Servo Motor.pdf>)
 - [Arduino Uno R3](<Datasheets/ELEGOO UNO R3 Board.pdf>)
 
-The ultrasonic sensor is mounted on the servo, allowing it to take measurements
-at different bearings.
+The first experiment uses a fixed sensor. A later step will mount the sensor
+on the servo, allowing it to take measurements at different bearings.
 
 ### Scanner
 
@@ -219,3 +188,42 @@ A frame is a collection of measurements produced by a single acquisition.
 
 The HC-SR04 produces one measurement per acquisition. A multi-zone sensor may
 instead produce a frame containing many range measurements.
+
+## Future terminology — occupancy grids
+
+Occupancy grids are planned for a later stage, after Mk. 1-A. These definitions
+describe the intended conventions for that work; no grid model is implemented
+in the current application.
+
+### Grid size
+
+The grid size is its complete physical width and height. The planned canonical
+physical unit is metres. A grid may therefore cover an area such as eight
+metres by four metres.
+
+### Cell size
+
+Cell size is the physical side length of a square grid cell, expressed in
+metres per cell. It is also referred to as the grid's spatial resolution.
+A cell size of 0.05 metres represents a square measuring 5 centimetres on
+each side.
+
+### Grid dimensions
+
+Grid dimensions are the number of columns and rows, expressed in cells. A
+grid that is eight metres wide and four metres high, with half a metre per
+cell, has sixteen columns and eight rows.
+
+### Total cells
+
+The total cell count is the number of columns multiplied by the number of
+rows. A grid with sixteen columns and eight rows therefore contains 128 cells.
+
+### Metres per cell
+
+Metres per cell is the conversion scale between physical map coordinates and
+grid coordinates. The future model will need this scale because column and
+row counts alone do not say how much physical space the occupancy map represents.
+
+Rendered pixels per cell are separate from metres per cell. Pixel size depends
+on the viewport, zoom, and available screen area.
