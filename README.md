@@ -46,7 +46,7 @@ The full progression from scanner to rover is described in the
 </p>
 
 <p align="center"><i>
-The Sensus workspace shell, ready for the first sensor experiment.
+The Sensus workspace showing live and simulated range visualization.
 </i></p>
 
 ## Quick Start

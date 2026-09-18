@@ -68,9 +68,9 @@ namespace Sensus
             CancellationToken cancellationToken = default
         )
         {
-            ObjectDisposedException.ThrowIf(_disposed, this);
-
             // https://learn.microsoft.com/en-us/archive/msdn-magazine/2019/november/csharp-iterating-with-async-enumerables-in-csharp-8
+
+            ObjectDisposedException.ThrowIf(_disposed, this);
 
             cancellationToken.ThrowIfCancellationRequested();
 
