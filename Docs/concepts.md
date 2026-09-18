@@ -30,6 +30,49 @@ measurements, and producing samples.
 For the initial prototype, the scanner consists of the Arduino, servo, and
 ultrasonic sensor.
 
+### Scanner simulation
+
+A scanner simulation represents the behaviour of the complete scanner rather
+than only the range sensor or microcontroller. It may therefore model the
+combined behaviour of the controller, servo, and ranging sensor while producing
+the same samples that a physical scanner would expose to Sensus.
+
+The simulation generator produces structured domain data such as `RangeSample`
+values. It should remain independent of how those samples are serialized or
+transported. Serialization and stream behaviour belong to separate layers.
+
+```text
+Scanner simulation
+        ↓
+RangeSample
+        ↓
+Range-sample serialization
+        ↓
+Transport / stream
+        ↓
+Sensus
+```
+
+A `RangeSample` describes one range observation and the metadata required to
+interpret it. Its bearing may come from the scanner's servo while its
+round-trip duration comes from the ranging sensor, so the sample already
+represents information aggregated from multiple scanner components.
+
+Future rover motion, localization, camera data, battery telemetry, and similar
+information should not automatically be added to `RangeSample`. These describe
+other parts of the larger device and may instead be represented as separate,
+time-correlated data sources. A future rover simulation can compose those
+sources while retaining the scanner as a distinct subsystem.
+
+```text
+Rover
+├── Scanner
+│   ├── Servo
+│   └── Range sensor
+├── Motion / localization
+└── Camera
+```
+
 ### Bearing
 
 A bearing is the direction in which the sensor is facing, expressed as an angle

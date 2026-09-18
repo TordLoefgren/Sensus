@@ -1,3 +1,4 @@
 <Solution>
+  <Project Path="Sensus.Tests/Sensus.Tests.csproj" Id="030e0a20-3a2e-43e4-b961-2fdc4fad7437" />
   <Project Path="Sensus/Sensus.csproj" />
 </Solution>

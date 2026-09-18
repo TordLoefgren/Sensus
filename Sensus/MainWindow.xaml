@@ -118,7 +118,8 @@
                     Margin="10"
                     HorizontalAlignment="Stretch"
                     VerticalAlignment="Stretch"
-                    Background="{StaticResource BorderStrongBrush}" />
+                    Background="{StaticResource AppSurfaceBrush}"
+                    ClipToBounds="True" />
 
             </Border>
 
@@ -131,7 +132,114 @@
                 Background="{StaticResource PanelBrush}"
                 BorderBrush="{StaticResource BorderBrush}"
                 BorderThickness="1"
-                CornerRadius="4" />
+                CornerRadius="4">
+
+                <StackPanel>
+                    <TextBlock
+                        Margin="20,5"
+                        HorizontalAlignment="Center"
+                        FontSize="20"
+                        Text="Serial Port" />
+
+                    <Button
+                        Margin="10,10,10,5"
+                        Background="{StaticResource PanelBrush}"
+                        Click="ConnectButton_Click"
+                        FontSize="15"
+                        Foreground="{StaticResource TextBrush}">
+                        Connect
+                    </Button>
+                    <Button
+                        Margin="10,5"
+                        Background="{StaticResource PanelBrush}"
+                        Click="DisconnectButton_Click"
+                        FontSize="15"
+                        Foreground="{StaticResource TextBrush}">
+                        Disconnect
+                    </Button>
+                    <Button
+                        Margin="10,5,10,5"
+                        Background="{StaticResource PanelBrush}"
+                        Click="RefreshButton_Click"
+                        FontSize="15"
+                        Foreground="{StaticResource TextBrush}">
+                        Refresh
+                    </Button>
+
+
+                    <TextBlock
+                        Margin="10,10,10,5"
+                        HorizontalAlignment="Center"
+                        FontSize="15"
+                        Text="Available serial ports" />
+
+                    <ComboBox
+                        x:Name="ValidPortsComboBox"
+                        Margin="10,5"
+                        FontSize="15"
+                        ItemsSource="{Binding AvailablePortNames}"
+                        SelectionChanged="ValidPortsComboBox_SelectionChanged" />
+
+                    <TextBlock
+                        x:Name="SerialPortConnectionStatusTextBlock"
+                        Margin="20,5"
+                        HorizontalAlignment="Center"
+                        FontSize="15"
+                        Text="Connection status: Disconnected" />
+
+                    <TextBlock
+                        x:Name="ErrorMessageTextBlock"
+                        Margin="20,5"
+                        HorizontalAlignment="Center"
+                        FontSize="15"
+                        Visibility="Collapsed" />
+
+                    <Separator />
+
+                    <TextBlock
+                        Margin="20,5"
+                        HorizontalAlignment="Center"
+                        FontSize="20"
+                        Text="Scanner Simulation" />
+
+                    <Button
+                        Margin="10,10,10,5"
+                        Background="{StaticResource PanelBrush}"
+                        Click="StartSimulationButton_Click"
+                        FontSize="15"
+                        Foreground="{StaticResource TextBrush}">
+                        Start Simulation
+                    </Button>
+                    <Button
+                        Margin="10,5,10,10"
+                        Background="{StaticResource PanelBrush}"
+                        Click="StopSimulationButton_Click"
+                        FontSize="15"
+                        Foreground="{StaticResource TextBrush}">
+                        StopSimulation
+                    </Button>
+
+                    <Separator />
+
+                    <TextBlock Margin="20,5" HorizontalAlignment="Center" FontSize="20" />
+
+                    <TextBlock
+                        x:Name="RoundTripDurationUsTextBlock"
+                        Margin="20,5"
+                        HorizontalAlignment="Center"
+                        FontSize="15"
+                        Text="Round trip duration: -" />
+
+                    <TextBlock
+                        x:Name="DistanceCmTextBlock"
+                        Margin="20,5"
+                        HorizontalAlignment="Center"
+                        FontSize="15"
+                        Text="Distance: -" />
+
+                </StackPanel>
+
+            </Border>
 
         </Grid>
 

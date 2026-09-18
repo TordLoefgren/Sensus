@@ -7,7 +7,8 @@ Sensus.
 
 The first experiment is intentionally small: read a distance from an HC-SR04
 with an Arduino Uno, send it over USB serial, and visualize it as a single line
-in Sensus.
+in Sensus. A simulation stream can provide alternative input by generating
+synthetic samples.
 
 This gives me a concrete system through which to learn how the **hardware**,
 **Arduino firmware**, **serial connection**, and **desktop application** fit
@@ -17,8 +18,9 @@ together before adding servo movement or mapping.
 
 **HC-SR04 → Arduino Uno → USB serial → Sensus → line**
 
-Once this works, I plan to separate the acquisition and presentation logic into
-testable services and viewmodels before adding the SG90 and angular sweeps.
+The first working slice is complete. The next step is to add the SG90 servo motor and
+angular sweeps. After that, the acquisition and presentation logic will be
+separated into services and viewmodels.
 
 ## Scope
 

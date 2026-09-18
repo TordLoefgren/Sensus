@@ -30,8 +30,13 @@ introducing wireless communication, motion, networking, and spatial mapping.
 
 Sensus is in active development, with work focused on
 [**Mk. 1-A — Wired scanner**](Projects/SensusRover/Marks/Mk-1-A/README.md).
-The application currently provides the workspace shell. Sensor acquisition
-and visualization are upcoming.
+The application currently supports live range samples from a real Arduino over
+a serial port and also generated synthetic samples from a simulation stream. Both inputs use
+the same async processing path and renders the latest measurement in the
+viewport.
+
+The next milestone will expand this from a single range value to more detailed range
+samples and their visualization.
 
 The full progression from scanner to rover is described in the
 [**Sensus Rover roadmap**](Projects/SensusRover/README.md#progression).

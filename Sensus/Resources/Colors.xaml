@@ -37,4 +37,14 @@
     <SolidColorBrush x:Key="ErrorBrush" Color="{StaticResource ErrorColor}" />
     <SolidColorBrush x:Key="CaptionCloseHoverBrush" Color="{StaticResource Red9Color}" />
     <SolidColorBrush x:Key="CaptionClosePressedBrush" Color="{StaticResource Red10Color}" />
+
+    <!--  Viewport  -->
+    <SolidColorBrush x:Key="ViewportMeasurementBrush" Opacity="0.5" Color="{StaticResource Slate12Color}" />
+    <SolidColorBrush x:Key="ViewportMeasurementErrorBrush" Opacity="0.5" Color="{StaticResource ErrorColor}" />
+    <SolidColorBrush x:Key="ViewportRangeStrokeBrush" Opacity="0.5" Color="{StaticResource ErrorColor}" />
+    <SolidColorBrush x:Key="ViewportRangeFillBrush" Opacity="0.1" Color="{StaticResource ErrorColor}" />
+    <SolidColorBrush x:Key="ViewportGridLineBrush" Opacity="0.15" Color="{StaticResource Slate12Color}" />
+    <SolidColorBrush x:Key="ViewportRulerBackgroundBrush" Opacity="0.1" Color="{StaticResource Slate9Color}" />
+    <SolidColorBrush x:Key="ViewportRulerLineBrush" Opacity="0.3" Color="{StaticResource Slate12Color}" />
+    <SolidColorBrush x:Key="ViewportRulerTextBrush" Color="{StaticResource Slate12Color}" />
 </ResourceDictionary>
