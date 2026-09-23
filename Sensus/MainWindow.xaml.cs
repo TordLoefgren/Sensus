@@ -1,15 +1,18 @@
 using System.Collections.ObjectModel;
+using System.ComponentModel;
 using System.Diagnostics;
 using System.Globalization;
 using System.IO;
 using System.IO.Ports;
+using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media;
 using System.Windows.Shapes;
-using System.Windows.Threading;
+using Sensus.Enums;
 using Sensus.Extensions;
+using Sensus.Models;
 using Sensus.Services;
 
 namespace Sensus
@@ -17,9 +20,495 @@ namespace Sensus
     /// <summary>
     /// Interaction logic for MainWindow.xaml
     /// </summary>
-    public partial class MainWindow : Window
+    public partial class MainWindow : Window, INotifyPropertyChanged
     {
-        private readonly record struct ViewportRenderParams(
+        #region Fields and properties
+
+        #region Transport
+
+        private const string DefaultSerialPortName = "DEFAULT";
+        private const string PreferredSerialPortName = "COM6";
+        private const int DefaultBaudRate = 9600;
+
+        private readonly SerialPort _serialPort = new() { NewLine = "\r\n" };
+
+        private string _selectedSerialPortName = DefaultSerialPortName;
+
+        #endregion
+
+
+        #region Protocol
+
+        private readonly RangeSampleSerializerService _rangeSampleSerializerService;
+
+        #endregion
+
+
+        #region Processing
+
+        private CancellationTokenSource? _inputProcessingCancellationTokenSource;
+        private Task? _inputProcessingTask;
+        private Stream? _inputProcessingStream;
+
+        #endregion
+
+
+        #region Domain
+
+        private readonly ScannerDefinition _scannerDefinition = new(
+            "Sensus Rover",
+            "Mk. 1-A",
+            new("ELEGOO UNO R3", "ATmega328"),
+            new("HC-SR04", 2.0, 400.0, 15.0),
+            new("SG90", 180.0)
+        );
+
+        private readonly ScannerConfiguration _scannerConfiguration = new(
+            -90.0,
+            90.0,
+            5.0,
+            60,
+            30_000
+        );
+
+        private ScannerSession? _activeSession;
+        public ScannerSession? ActiveSession
+        {
+            get => _activeSession;
+            set
+            {
+                if (_activeSession == value)
+                {
+                    return;
+                }
+
+                _activeSession = value;
+
+                OnPropertyChanged();
+                OnPropertyChanged(nameof(CanClearSession));
+            }
+        }
+
+        #endregion
+
+
+        #region Presentation
+
+        public event PropertyChangedEventHandler? PropertyChanged;  // TODO: Remove once viewmodels are introduced.
+
+        #region Source
+
+        public bool CanUseSerial => SourceState == SourceState.Idle || SourceType == SourceType.Serial;
+        public bool CanUseSimulation => SourceState == SourceState.Idle || SourceType == SourceType.Simulation;
+        public bool CanClearSession => ActiveSession is not null && SourceState == SourceState.Idle;
+
+        public string SerialConnectionButtonDisplay => SourceType == SourceType.Serial
+            ? SourceState switch
+            {
+                SourceState.Connecting => "Cancel",
+                SourceState.Active => "Disconnect",
+                _ => "Connect"
+            }
+            : "Connect";
+
+        public string SimulationButtonDisplay => SourceType == SourceType.Simulation
+            ? SourceState switch
+            {
+                SourceState.Connecting => "Cancel",
+                SourceState.Active => "Stop",
+                _ => "Start"
+            }
+            : "Start";
+
+        private SourceState _sourceState = SourceState.Idle;
+        public SourceState SourceState
+        {
+            get => _sourceState;
+            private set
+            {
+                if (_sourceState == value)
+                {
+                    return;
+                }
+
+                _sourceState = value;
+
+                OnPropertyChanged(nameof(CanUseSerial));
+                OnPropertyChanged(nameof(CanUseSimulation));
+                OnPropertyChanged(nameof(CanClearSession));
+                OnPropertyChanged(nameof(SourceStatusDisplay));
+                OnPropertyChanged(nameof(SerialConnectionButtonDisplay));
+                OnPropertyChanged(nameof(SimulationButtonDisplay));
+            }
+        }
+
+        private SourceType _sourceType;
+        public SourceType SourceType
+        {
+            get => _sourceType;
+            private set
+            {
+                if (_sourceType == value)
+                {
+                    return;
+                }
+
+                _sourceType = value;
+
+                OnPropertyChanged();
+                OnPropertyChanged(nameof(CanUseSerial));
+                OnPropertyChanged(nameof(CanUseSimulation));
+                OnPropertyChanged(nameof(SerialConnectionButtonDisplay));
+                OnPropertyChanged(nameof(SimulationButtonDisplay));
+            }
+        }
+
+        private string? _sourceIdentity;
+        public string? SourceIdentity
+        {
+            get => _sourceIdentity;
+            private set
+            {
+                if (_sourceIdentity == value)
+                {
+                    return;
+                }
+
+                _sourceIdentity = value;
+                OnPropertyChanged();
+                OnPropertyChanged(nameof(SourceStatusDisplay));
+            }
+        }
+
+        public string SourceStatusDisplay => SourceState == SourceState.Idle
+            ? SourceState.ToDisplayString()
+            : $"{SourceIdentity ?? "Source"} · {SourceState.ToDisplayString()}";
+
+        #endregion
+
+
+        #region Scanner panel
+
+        // Definition.
+
+        public string ScannerIdentityDisplay => string.IsNullOrWhiteSpace(_scannerDefinition.Mark)
+                ? _scannerDefinition.Name
+                : $"{_scannerDefinition.Name} · {_scannerDefinition.Mark}";
+        public string BoardNameDisplay => _scannerDefinition.MicrocontrollerBoard.Name;
+        public string MicrocontrollerDisplay => _scannerDefinition.MicrocontrollerBoard.Microcontroller;
+        public string SensorNameDisplay => _scannerDefinition.RangeSensor.Name;
+        public string SensorRangeDisplay => $"{_scannerDefinition.RangeSensor.MinRangeCm:0.##} – {_scannerDefinition.RangeSensor.MaxRangeCm:0.##} cm";
+        public string SensorMeasuringAngleDisplay => $"{_scannerDefinition.RangeSensor.MeasuringAngleDegrees:0.##}°";
+        public string ServoNameDisplay => _scannerDefinition.ServoMotor.Name;
+        public string ServoRotationRangeDisplay => $"{_scannerDefinition.ServoMotor.RotationRangeDegrees:0.##}°";
+
+        // Serial connection.
+
+        public ObservableCollection<string> AvailablePortNames { get; } = [];
+
+        public string SerialBaudRateDisplay => $"{DefaultBaudRate} baud";
+
+        // Simulation.
+
+        #region Simulation
+
+        public SimulationScenario[] AvailableSimulationScenarios { get; } = Enum.GetValues<SimulationScenario>();
+
+        private SimulationScenario _selectedSimulationScenario = SimulationScenario.SymmetricSweep;
+        public SimulationScenario SelectedSimulationScenario
+        {
+            get => _selectedSimulationScenario;
+            private set
+            {
+                if (_selectedSimulationScenario == value)
+                {
+                    return;
+                }
+
+                _selectedSimulationScenario = value;
+                OnPropertyChanged();
+            }
+        }
+
+        #endregion
+
+        // Scanner configuration.
+
+        private double _minBearingDegrees;
+        public double MinBearingDegrees
+        {
+            get => _minBearingDegrees;
+            set
+            {
+                if (_minBearingDegrees == value)
+                {
+                    return;
+                }
+
+                _minBearingDegrees = value;
+
+                OnPropertyChanged();
+                OnPropertyChanged(nameof(SweepRangeDisplay));
+            }
+        }
+
+        private double _maxBearingDegrees;
+        public double MaxBearingDegrees
+        {
+            get => _maxBearingDegrees;
+            set
+            {
+                if (_maxBearingDegrees == value)
+                {
+                    return;
+                }
+
+                _maxBearingDegrees = value;
+
+                OnPropertyChanged();
+                OnPropertyChanged(nameof(SweepRangeDisplay));
+            }
+        }
+
+        private double _bearingStepDegrees;
+        public double BearingStepDegrees
+        {
+            get => _bearingStepDegrees;
+            set
+            {
+                if (_bearingStepDegrees == value)
+                {
+                    return;
+                }
+
+                _bearingStepDegrees = value;
+
+                OnPropertyChanged();
+                OnPropertyChanged(nameof(BearingStepDisplay));
+            }
+        }
+
+        private uint _acquisitionDelayMs;
+        public uint AcquisitionDelayMs
+        {
+            get => _acquisitionDelayMs;
+            set
+            {
+                if (_acquisitionDelayMs == value)
+                {
+                    return;
+                }
+
+                _acquisitionDelayMs = value;
+
+                OnPropertyChanged();
+                OnPropertyChanged(nameof(AcquisitionDelayDisplay));
+            }
+        }
+
+        private uint _echoTimeoutUs;
+        public uint EchoTimeoutUs
+        {
+            get => _echoTimeoutUs;
+            set
+            {
+                if (_echoTimeoutUs == value)
+                {
+                    return;
+                }
+
+                _echoTimeoutUs = value;
+
+                OnPropertyChanged();
+                OnPropertyChanged(nameof(EchoTimeoutDisplay));
+            }
+        }
+
+        // Formatted configuration.
+
+        public string SweepRangeDisplay => $"{MinBearingDegrees:0.##}° ↔ {MaxBearingDegrees:0.##}°";
+        public string BearingStepDisplay => $"{BearingStepDegrees:0.##}°";
+        public string AcquisitionDelayDisplay => $"{AcquisitionDelayMs} ms";
+        public string EchoTimeoutDisplay => $"{EchoTimeoutUs} μs";
+
+        #endregion
+
+
+        #region Inspector panel
+
+        // Sample.
+
+        private string _sequenceDisplay = "-";
+        public string SequenceDisplay
+        {
+            get => _sequenceDisplay;
+            set
+            {
+                _sequenceDisplay = value;
+                OnPropertyChanged();
+            }
+        }
+
+        private string _sweepIdDisplay = "-";
+        public string SweepIdDisplay
+        {
+            get => _sweepIdDisplay;
+            set
+            {
+                _sweepIdDisplay = value;
+                OnPropertyChanged();
+            }
+        }
+
+        private string _elapsedDisplay = "-";
+        public string ElapsedDisplay
+        {
+            get => _elapsedDisplay;
+            set
+            {
+                _elapsedDisplay = value;
+                OnPropertyChanged();
+            }
+        }
+
+        private string _bearingDisplay = "-";
+        public string BearingDisplay
+        {
+            get => _bearingDisplay;
+            set
+            {
+                _bearingDisplay = value;
+                OnPropertyChanged();
+            }
+        }
+
+        private string _roundTripDisplay = "-";
+        public string RoundTripDisplay
+        {
+            get => _roundTripDisplay;
+            set
+            {
+                _roundTripDisplay = value;
+                OnPropertyChanged();
+            }
+        }
+
+        private string _statusDisplay = "-";
+        public string StatusDisplay
+        {
+            get => _statusDisplay;
+            set
+            {
+                _statusDisplay = value;
+                OnPropertyChanged();
+            }
+        }
+
+        // Observation.
+
+        private string _elapsedSecondsDisplay = "-";
+        public string ElapsedSecondsDisplay
+        {
+            get => _elapsedSecondsDisplay;
+            set
+            {
+                _elapsedSecondsDisplay = value;
+                OnPropertyChanged();
+            }
+        }
+
+        private string _distanceDisplay = "-";
+        public string DistanceDisplay
+        {
+            get => _distanceDisplay;
+            set
+            {
+                _distanceDisplay = value;
+                OnPropertyChanged();
+            }
+        }
+
+        private string _positionXDisplay = "-";
+        public string PositionXDisplay
+        {
+            get => _positionXDisplay;
+            set
+            {
+                _positionXDisplay = value;
+                OnPropertyChanged();
+            }
+        }
+
+        private string _positionYDisplay = "-";
+        public string PositionYDisplay
+        {
+            get => _positionYDisplay;
+            set
+            {
+                _positionYDisplay = value;
+                OnPropertyChanged();
+            }
+        }
+
+        private string _rangeStatusDisplay = "-";
+        public string RangeStatusDisplay
+        {
+            get => _rangeStatusDisplay;
+            set
+            {
+                _rangeStatusDisplay = value;
+                OnPropertyChanged();
+            }
+        }
+
+        #endregion
+
+
+        #region Status Bar
+
+        // Mouse position.
+
+        private Point? _latestMousePositionCm;
+
+        private string _mousePositionDisplay = "Undefined";
+        public string MousePositionDisplay
+        {
+            get => _mousePositionDisplay;
+            set
+            {
+                _mousePositionDisplay = value;
+                OnPropertyChanged();
+            }
+        }
+
+        #endregion
+
+
+        #endregion
+
+
+        #region Rendering
+
+        // Viewport geometry.
+
+        private const double ViewportHeightCm = 1200;
+        private const int StrokeThicknessSmall = 1;
+        private const int StrokeThicknessMedium = 2;
+
+        private const double MajorGridSpacingCm = 100;
+        private const double MinorRulerTickOffsetCm = MajorGridSpacingCm / 2;
+
+        private const double MajorRulerTickLengthPixels = 10;
+        private const double MinorRulerTickLengthPixels = 5;
+
+        private const double RulerThicknessPixels = 30;
+        private const double RulerEdgePaddingPixels = 8;
+
+        private const double ScannerMarkerDiameterPixels = 10;
+        private const double ScannerForwardMarkerLengthPixels = 7;
+        private const double ObservationMarkerRadiusPixels = 4;
+
+        private readonly record struct ViewportTransform(
             double Left,
             double Top,
             double Width,
@@ -27,66 +516,91 @@ namespace Sensus
             double OriginScreenX,
             double OriginScreenY,
             double CmToPixels
+        )
+        {
+            public double WorldToScreenX(double worldX)
+            {
+                return OriginScreenX + worldX * CmToPixels;
+            }
+
+            public double WorldToScreenY(double worldY)
+            {
+                return OriginScreenY - worldY * CmToPixels;
+            }
+
+            public double ScreenToWorldX(double screenX)
+            {
+                return (screenX - OriginScreenX) / CmToPixels;
+            }
+
+            public double ScreenToWorldY(double screenY)
+            {
+                return (OriginScreenY - screenY) / CmToPixels;
+            }
+        }
+
+        private readonly record struct GridLayout(
+            double FirstX,
+            double FirstY,
+            int VerticalCount,
+            int HorizontalCount
         );
+
+        // Brushes.
 
         private readonly Brush _viewportGridLineBrush;
         private readonly Brush _viewportRulerBackgroundBrush;
         private readonly Brush _viewportRulerLineBrush;
         private readonly Brush _viewportRulerTextBrush;
-        private readonly Brush _viewportMeasurementBrush;
-        private readonly Brush _viewportMeasurementErrorBrush;
+        private readonly Brush _viewportObservationBrush;
+        private readonly Brush _viewportObservationErrorBrush;
         private readonly Brush _viewportRangeStrokeBrush;
         private readonly Brush _viewportRangeFillBrush;
 
-        // Transport.
-        private const string SerialPortNameDefault = "DEFAULT";
-        private const int BaudRateDefault = 9600;
+        // Grid layer.
 
-        private readonly SerialPort _serialPort = new() { NewLine = "\r\n" };
-        private ScannerSimulationStream? _scannerSimulationStream;
+        private readonly List<Line> _horizontalGridLines = [];
+        private readonly List<Line> _verticalGridLines = [];
 
-        // Protocol.
-        private readonly RangeSampleSerializerService _rangeSampleSerializerService;
+        private readonly List<TextBlock> _horizontalGridRulerLabels = [];
+        private readonly List<TextBlock> _verticalGridRulerLabels = [];
 
-        // Processing.
-        private CancellationTokenSource? inputProcessingCancellationTokenSource;
-        private Task? inputProcessingTask;
-        private Stream? inputProcessingStream;
+        private readonly List<Line> _horizontalMajorTicks = [];
+        private readonly List<Line> _horizontalMinorTicks = [];
 
-        // Presentation / Rendering.
-        private const double MaxRangeCm = 400;
-        private const double MinRangeCm = 2;
-        private const double ViewportHeightCm = 1200;
-        private const int GridLineSpacingCm = 100;
-        private const int RulerThicknessPixels = 30;
-        private const int StrokeThicknessSmall = 1;
-        private const int StrokeThicknessMedium = 2;
+        private readonly List<Line> _verticalMajorTicks = [];
+        private readonly List<Line> _verticalMinorTicks = [];
 
-        public ObservableCollection<string> AvailablePortNames { get; private set; } = [];
+        private readonly Rectangle _rulerBackgroundRectangleHorizontal;
+        private readonly Rectangle _rulerBackgroundRectangleVertical;
+        private readonly Rectangle _rulerBackgroundRectangleCorner;
 
-        private readonly List<Line> _gridLines = [];
-        private readonly List<TextBlock> _gridRulerLabels = [];
-        private readonly List<Line> _gridRulerTicks = [];
+        private readonly Line _rulerBorderLineHorizontal;
+        private readonly Line _rulerBorderLineVertical;
+        private readonly Line _rulerBorderLineDiagonal;
 
-        private string selectedSerialPortName = SerialPortNameDefault;
-        private double latestDistanceCm = 0;
-        private Point? latestMousePositionCm;
+        private readonly Rectangle _canvasBorderRectangle;
 
-        private Line measurementLine = new();
-        private Ellipse measurementEllipse = new();
-        private Ellipse maxRangeEllipse = new();
-        private Ellipse minRangeEllipse = new();
+        // Gizmo layer.
 
-        private Rectangle rulerBackgroundRectangleHorizontal = new();
-        private Rectangle rulerBackgroundRectangleVertical = new();
-        private Rectangle rulerBackgroundRectangleCorner = new();
-        private Line rulerBorderLineHorizontal = new();
-        private Line rulerBorderLineVertical = new();
-        private Line rulerBorderLineDiagonal = new();
+        private readonly Ellipse _scannerOriginMarker = new();
+        private readonly Line _scannerForwardMarker = new();
 
-        private TextBlock mouseHoverPositionLabel = new();
-        private Rectangle mouseHoverPositionLabelBackground = new();
-        private Rectangle canvasBorderRectangle = new();
+        private readonly Line _observationLine = new();
+        private readonly Ellipse _observationEndpointEllipse = new();
+
+        private readonly System.Windows.Shapes.Path _layoutScannerCoveragePath = new();
+        private readonly PathGeometry _layoutScannerCoveragePathGeometry = new();
+        private readonly PathFigure _layoutScannerCoveragePathFigure = new() { IsClosed = true };
+        private readonly LineSegment _layoutScannerCoverageMinBearingLineSegment = new();
+        private readonly ArcSegment _layoutScannerCoverageOuterArcSegment = new();
+        private readonly LineSegment _layoutScannerCoverageMaxBearingLineSegment = new();
+        private readonly ArcSegment _layoutScannerCoverageInnerArcSegment = new();
+
+        #endregion
+
+
+        #endregion
 
         public MainWindow()
         {
@@ -97,138 +611,56 @@ namespace Sensus
             _viewportRulerBackgroundBrush = (Brush)FindResource("ViewportRulerBackgroundBrush");
             _viewportRulerLineBrush = (Brush)FindResource("ViewportRulerLineBrush");
             _viewportRulerTextBrush = (Brush)FindResource("ViewportRulerTextBrush");
-            _viewportMeasurementBrush = (Brush)FindResource("ViewportMeasurementBrush");
-            _viewportMeasurementErrorBrush = (Brush)FindResource("ViewportMeasurementErrorBrush");
+            _viewportObservationBrush = (Brush)FindResource("ViewportObservationBrush");
+            _viewportObservationErrorBrush = (Brush)FindResource("ViewportObservationErrorBrush");
             _viewportRangeStrokeBrush = (Brush)FindResource("ViewportRangeStrokeBrush");
             _viewportRangeFillBrush = (Brush)FindResource("ViewportRangeFillBrush");
 
+            _rulerBackgroundRectangleHorizontal = new() { Fill = _viewportRulerBackgroundBrush };
+            _rulerBackgroundRectangleVertical = new() { Fill = _viewportRulerBackgroundBrush };
+            _rulerBackgroundRectangleCorner = new() { Fill = _viewportRulerBackgroundBrush };
+
+            _rulerBorderLineHorizontal = new() { Stroke = _viewportRulerLineBrush, StrokeThickness = StrokeThicknessSmall };
+            _rulerBorderLineVertical = new() { Stroke = _viewportRulerLineBrush, StrokeThickness = StrokeThicknessSmall };
+            _rulerBorderLineDiagonal = new() { Stroke = _viewportRulerLineBrush, StrokeThickness = StrokeThicknessSmall };
+
+            _canvasBorderRectangle = new() { Stroke = _viewportRulerLineBrush, StrokeThickness = StrokeThicknessSmall };
+
             _rangeSampleSerializerService = new();
 
-            InitializeViewport();
             RefreshSerialPorts();
+            SelectPreferredSerialPort();
+
+            SimulationScenarioComboBox.SelectedItem = SelectedSimulationScenario;
+
+            MinBearingDegrees = _scannerConfiguration.MinBearingDegrees;
+            MaxBearingDegrees = _scannerConfiguration.MaxBearingDegrees;
+            BearingStepDegrees = _scannerConfiguration.BearingStepDegrees;
+            AcquisitionDelayMs = _scannerConfiguration.AcquisitionDelayMs;
+            EchoTimeoutUs = _scannerConfiguration.EchoTimeoutUs;
 
             Loaded += MainWindow_Loaded;
 
-            ViewportCanvas.SizeChanged += ViewportCanvas_SizeChanged;
-            ViewportCanvas.MouseMove += ViewportCanvas_MouseMove;
-            ViewportCanvas.MouseLeave += ViewportCanvas_MouseLeave;
+            ViewportHost.SizeChanged += ViewportHost_SizeChanged;
+            ViewportHost.MouseMove += ViewportHost_MouseMove;
+            ViewportHost.MouseLeave += ViewportHost_MouseLeave;
+
+            InitializeGizmoLayer();
         }
 
-        #region Processing
+        #region Window / UI
 
-        private async Task ProcessInput(Stream stream, CancellationToken cancellationToken)
+        private void MainWindow_Loaded(object sender, RoutedEventArgs e)
         {
-            try
-            {
-                using StreamReader reader = new(stream, leaveOpen: true);
-
-                string? line;
-                while ((line = await reader.ReadLineAsync(cancellationToken)) is not null)
-                {
-                    // Protocol.
-                    if (!_rangeSampleSerializerService.TryDeserialize(line, out var rangeSample))
-                    {
-                        continue;
-                    }
-
-                    // Domain.
-                    var roundTripDurationUs = rangeSample.RoundTripDurationUs;
-                    var distanceCm = CalculateDistanceCm(roundTripDurationUs);
-
-                    // Presentation / Rendering.
-                    await Dispatcher.InvokeAsync(() =>
-                    {
-                        latestDistanceCm = distanceCm;
-
-                        RenderViewport(distanceCm);
-                        UpdateSample(roundTripDurationUs, distanceCm);
-                    });
-                }
-            }
-            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
-            {
-                // Cancellation is the expected completion path when changing inputs or closing.
-            }
-            catch (IOException ex) when (!cancellationToken.IsCancellationRequested)
-            {
-                await Dispatcher.InvokeAsync(() =>
-                {
-                    UpdateConnectionStatus("Error");
-                    UpdateError(ex.Message);
-                });
-            }
-            catch (ObjectDisposedException) when (cancellationToken.IsCancellationRequested)
-            {
-                // Closing a stream is part of the expected cancellation path.
-            }
-            catch (Exception ex) when (!cancellationToken.IsCancellationRequested)
-            {
-                await Dispatcher.InvokeAsync(() =>
-                {
-                    UpdateConnectionStatus("Error");
-                    UpdateError(ex.Message);
-                });
-            }
+            UpdateWindowFrame();
+            LayoutViewportForCurrentSize();
         }
 
-        private async Task StartInputProcessing(Stream stream)
+        protected override void OnClosed(EventArgs e)
         {
-            await StopInputProcessing();
+            _ = StopInputProcessingAsync();
 
-            inputProcessingCancellationTokenSource = new();
-            inputProcessingStream = stream;
-            inputProcessingTask = ProcessInput(stream, inputProcessingCancellationTokenSource.Token);
-        }
-
-        private async Task StopInputProcessing()
-        {
-            // Snapshot the previous session to make sure cleanup cannot target the replacement.
-            var task = inputProcessingTask;
-            var cancellationTokenSource = inputProcessingCancellationTokenSource;
-            var stream = inputProcessingStream;
-
-            inputProcessingTask = null;
-            inputProcessingCancellationTokenSource = null;
-            inputProcessingStream = null;
-
-            if (task is null)
-            {
-                return;
-            }
-
-            cancellationTokenSource?.Cancel();
-
-            // Close serial before awaiting and dispose simulation after its read ends.
-            var disposeBeforeAwait = stream is not ScannerSimulationStream;
-            if (disposeBeforeAwait && stream is not null)
-            {
-                try
-                {
-                    await stream.DisposeAsync();
-                }
-                catch (Exception ex) when (ex is IOException or ObjectDisposedException)
-                {
-                    Debug.WriteLine(ex.Message);
-                }
-            }
-
-            try
-            {
-                await task;
-            }
-            catch (Exception ex) when (ex is OperationCanceledException or IOException)
-            {
-                // Cancellation and stream shutdown are expected during cleanup.
-            }
-            finally
-            {
-                if (!disposeBeforeAwait && stream is not null)
-                {
-                    await stream.DisposeAsync();
-                }
-
-                cancellationTokenSource?.Dispose();
-            }
+            base.OnClosed(e);
         }
 
         #endregion
@@ -243,44 +675,53 @@ namespace Sensus
             AvailablePortNames.Clear();
             AvailablePortNames.AddRange(serialPortNames);
 
-            if (selectedSerialPortName != SerialPortNameDefault && !serialPortNames.Contains(selectedSerialPortName))
+            if (_serialPort.IsOpen && !serialPortNames.Contains(_serialPort.PortName))
             {
+                _ = StopInputProcessingAsync();
                 CloseSerialPort();
-                selectedSerialPortName = SerialPortNameDefault;
-
-                return;
             }
 
-            if (!_serialPort.IsOpen)
+            if (_selectedSerialPortName != DefaultSerialPortName && !serialPortNames.Contains(_selectedSerialPortName))
             {
-                Dispatcher.InvokeAsync(() => UpdateConnectionStatus("Disconnected"));
+                _selectedSerialPortName = DefaultSerialPortName;
 
                 return;
             }
 
-            Dispatcher.InvokeAsync(() => UpdateConnectionStatus("Connected"));
+            ValidPortsComboBox.SelectedIndex = serialPortNames.IndexOf(_selectedSerialPortName);
+        }
 
-            ValidPortsComboBox.SelectedIndex = serialPortNames.IndexOf(selectedSerialPortName);
+        private void SelectPreferredSerialPort()
+        {
+            if (_selectedSerialPortName == DefaultSerialPortName && AvailablePortNames.Count > 0)
+            {
+                if (AvailablePortNames.Contains(PreferredSerialPortName))
+                {
+                    _selectedSerialPortName = PreferredSerialPortName;
+                }
+                else
+                {
+                    _selectedSerialPortName = AvailablePortNames.First();
+                }
+
+                ValidPortsComboBox.SelectedIndex = AvailablePortNames.IndexOf(_selectedSerialPortName);
+            }
         }
 
         private bool OpenSerialPort(string portName, int baudRate)
         {
-            _serialPort.PortName = portName;
-            _serialPort.BaudRate = baudRate;
-
             try
             {
+                _serialPort.PortName = portName;
+                _serialPort.BaudRate = baudRate;
                 _serialPort.Open();
-                Dispatcher.InvokeAsync(() => UpdateConnectionStatus("Connected"));
+
                 return true;
             }
             catch (Exception ex)
             {
-                Dispatcher.InvokeAsync(() =>
-                {
-                    UpdateConnectionStatus("Error");
-                    UpdateError(ex.Message);
-                });
+                UpdateError(ex.Message);
+
                 return false;
             }
         }
@@ -292,10 +733,245 @@ namespace Sensus
                 _serialPort.Close();
             }
 
-            _serialPort.PortName = SerialPortNameDefault;
-            _serialPort.BaudRate = BaudRateDefault;
+            _serialPort.PortName = DefaultSerialPortName;
+            _serialPort.BaudRate = DefaultBaudRate;
+        }
 
-            Dispatcher.InvokeAsync(() => UpdateConnectionStatus("Disconnected"));
+        #endregion
+
+
+        #region Processing
+
+        private async Task CleanupFailedInputAsync(Stream stream)
+        {
+            if (!ReferenceEquals(_inputProcessingStream, stream))
+            {
+                return;
+            }
+
+            _inputProcessingStream = null;
+            _inputProcessingTask = null;
+
+            SourceState = SourceState.Idle;
+            SourceType = SourceType.None;
+            SourceIdentity = null;
+
+            var cancellationTokenSource = _inputProcessingCancellationTokenSource;
+            _inputProcessingCancellationTokenSource = null;
+
+            await CloseInputTransportAsync(stream);
+
+            cancellationTokenSource?.Dispose();
+        }
+
+        private async Task PerformHandshakeAsync(StreamReader reader, StreamWriter writer, CancellationToken cancellationToken)
+        {
+            await writer.WriteLineAsync("HELLO");
+
+            var timeout = TimeSpan.FromSeconds(3);
+            const string timeoutMessage = "Scanner handshake timed out. Check the connection and try again.";
+            var stopwatch = Stopwatch.StartNew();
+
+            while (stopwatch.Elapsed < timeout)
+            {
+                var remaining = timeout - stopwatch.Elapsed;
+                if (remaining <= TimeSpan.Zero)
+                {
+                    break;
+                }
+
+                string? response;
+                try
+                {
+                    response = await reader
+                        .ReadLineAsync(cancellationToken)
+                        .AsTask()
+                        .WaitAsync(remaining, cancellationToken);
+                }
+                catch (TimeoutException ex)
+                {
+                    throw new TimeoutException(timeoutMessage, ex);
+                }
+
+                if (response is null)
+                {
+                    throw new EndOfStreamException("The scanner disconnected during the handshake.");
+                }
+
+                if (response == "HELLO BACK")
+                {
+                    return;
+                }
+
+                // We ignore stale or pre-handshake inputs.
+            }
+
+            throw new TimeoutException(timeoutMessage);
+        }
+
+        private async Task ProcessSamplesAsync(StreamReader reader, ScannerSession session, CancellationToken cancellationToken)
+        {
+            string? line;
+            while ((line = await reader.ReadLineAsync(cancellationToken)) is not null)
+            {
+                // Protocol.
+                if (!_rangeSampleSerializerService.TryDeserialize(line, out var rangeSample))
+                {
+                    continue;
+                }
+
+                // Domain.
+                var distanceCm = CalculateDistanceCm(rangeSample.RoundTripDurationUs);
+                var rangeStatus = GetRangeStatus(distanceCm);
+
+                var observation = new RangeObservation(rangeSample, distanceCm, rangeStatus);
+                session.AddObservation(observation);
+
+                // Presentation / Rendering.
+                await Dispatcher.InvokeAsync(() =>
+                {
+                    var transform = GetViewportTransform();
+
+                    AddObservationPoint(transform, observation);
+                    ShowLatestObservationIndicator(transform, observation);
+
+                    UpdateSampleDisplay(rangeSample);
+                    UpdateObservationDisplay(observation);
+                });
+            }
+        }
+
+        private async Task ProcessInputAsync(Stream stream, CancellationToken cancellationToken)
+        {
+            try
+            {
+                using StreamReader reader = new(stream, leaveOpen: true);
+                await using StreamWriter writer = new(stream, leaveOpen: true)
+                {
+                    AutoFlush = true,
+                    NewLine = "\r\n"
+                };
+
+                await PerformHandshakeAsync(reader, writer, cancellationToken);
+
+                ActiveSession = new();
+
+                await writer.WriteLineAsync("START");
+
+                SourceState = SourceState.Active;
+
+                await ProcessSamplesAsync(reader, ActiveSession, cancellationToken);
+
+                await Dispatcher.InvokeAsync(() =>
+                {
+                    if (!cancellationToken.IsCancellationRequested && ReferenceEquals(_inputProcessingStream, stream))
+                    {
+                        SourceState = SourceState.Idle;
+                        SourceIdentity = null;
+                    }
+                });
+            }
+            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+            {
+                // Cancellation is the expected completion path when changing inputs or closing.
+            }
+            catch (ObjectDisposedException) when (cancellationToken.IsCancellationRequested)
+            {
+                // Closing a stream is part of the expected cancellation path.
+            }
+            catch (Exception ex) when (!cancellationToken.IsCancellationRequested)
+            {
+                await CleanupFailedInputAsync(stream);
+
+                await Dispatcher.InvokeAsync(() =>
+                {
+                    UpdateError(ex.Message);
+                });
+            }
+        }
+
+        private void StartInputProcessing(Stream stream, SourceType sourceType, string sourceIdentity)
+        {
+            _inputProcessingCancellationTokenSource = new();
+            _inputProcessingStream = stream;
+
+            SourceType = sourceType;
+            SourceIdentity = sourceIdentity;
+            SourceState = SourceState.Connecting;
+
+            UpdateError(null);
+
+            ObjectLayer.Children.Clear();
+            HideLatestObservationIndicator();
+
+            UpdateSampleDisplay(null);
+            UpdateObservationDisplay(null);
+
+            _inputProcessingTask = ProcessInputAsync(stream, _inputProcessingCancellationTokenSource.Token);
+        }
+
+        private async Task CloseInputTransportAsync(Stream? stream)
+        {
+            if (stream is null)
+            {
+                return;
+            }
+
+            if (stream is ScannerSimulationStream)
+            {
+                await stream.DisposeAsync();
+                return;
+            }
+
+            CloseSerialPort();
+        }
+
+        private async Task StopInputProcessingAsync()
+        {
+            // Snapshot the previous session to make sure cleanup cannot target the replacement.
+            var task = _inputProcessingTask;
+            var cancellationTokenSource = _inputProcessingCancellationTokenSource;
+            var stream = _inputProcessingStream;
+
+            _inputProcessingTask = null;
+            _inputProcessingCancellationTokenSource = null;
+            _inputProcessingStream = null;
+
+            SourceState = SourceState.Idle;
+            SourceType = SourceType.None;
+            SourceIdentity = null;
+
+            UpdateError(null);
+
+            if (task is null)
+            {
+                return;
+            }
+
+            cancellationTokenSource?.Cancel();
+
+            try
+            {
+                if (stream is ScannerSimulationStream)
+                {
+                    await task;
+                    await CloseInputTransportAsync(stream);
+                }
+                else
+                {
+                    await CloseInputTransportAsync(stream);
+                    await task;
+                }
+            }
+            catch (Exception ex) when (
+                ex is OperationCanceledException or IOException or ObjectDisposedException)
+            {
+                // Cancellation and transport shutdown are expected during cleanup.
+            }
+            finally
+            {
+                cancellationTokenSource?.Dispose();
+            }
         }
 
         #endregion
@@ -309,31 +985,149 @@ namespace Sensus
             return roundTripDurationUs * 0.034 / 2;
         }
 
+        private RangeStatus GetRangeStatus(double distanceCm)
+        {
+            if (distanceCm > _scannerDefinition.RangeSensor.MaxRangeCm)
+            {
+                return RangeStatus.TooFar;
+            }
+            else if (distanceCm < _scannerDefinition.RangeSensor.MinRangeCm)
+            {
+                return RangeStatus.TooClose;
+            }
+            else
+            {
+                return RangeStatus.InRange;
+            }
+        }
+
         #endregion
 
 
         #region Presentation
 
-        private void UpdateConnectionStatus(string status)
+        // TODO: Remove once viewmodels are introduced.
+        private void OnPropertyChanged([CallerMemberName] string? propertyName = null)
         {
-            SerialPortConnectionStatusTextBlock.Text = $"Connection status: {status}";
+            PropertyChanged?.Invoke(this, new(propertyName));
         }
 
-        private void UpdateSample(uint? roundTripDurationUs, double? distanceCm)
+
+        #region Scanner panel
+
+        // Serial connection.
+
+        private async Task ConnectSerialAsync()
         {
-            RoundTripDurationUsTextBlock.Text = roundTripDurationUs.HasValue
-                ? $"Round trip duration: {roundTripDurationUs} μs"
-                : $"Round trip duration: -";
-            DistanceCmTextBlock.Text = roundTripDurationUs.HasValue
-                ? $"Distance: {distanceCm:F2} cm"
-                : $"Distance: -";
+            await StopInputProcessingAsync();
+            CloseSerialPort();
+
+            if (_selectedSerialPortName == DefaultSerialPortName)
+            {
+                UpdateError("Please select a serial port");
+                return;
+            }
+
+            if (!OpenSerialPort(_selectedSerialPortName, DefaultBaudRate))
+            {
+                return;
+            }
+
+            StartInputProcessing(_serialPort.BaseStream, SourceType.Serial, $"Serial · {_selectedSerialPortName}");
         }
+
+        private void RefreshSerialPortsButton_Click(object sender, RoutedEventArgs e)
+        {
+            RefreshSerialPorts();
+            SelectPreferredSerialPort();
+        }
+
+        private async void SerialConnectionButton_Click(object sender, RoutedEventArgs e)
+        {
+            switch (SourceState)
+            {
+                case SourceState.Idle:
+                    await ConnectSerialAsync();
+                    break;
+
+                case SourceState.Connecting:
+                case SourceState.Active:
+                    await StopInputProcessingAsync();
+                    break;
+            }
+        }
+
+        private void ValidPortsComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        {
+            if (sender is ComboBox comboBox && comboBox.SelectedValue is string selectedValue)
+            {
+                _selectedSerialPortName = selectedValue;
+            }
+        }
+
+        // Simulation.
+
+        #region Simulation
+
+        private async Task StartSimulationAsync()
+        {
+            await StopInputProcessingAsync();
+            CloseSerialPort();
+
+            var stream = new ScannerSimulationStream(
+                ScannerSimulationGenerator.Create(SelectedSimulationScenario, _scannerConfiguration),
+                _rangeSampleSerializerService
+            );
+
+            StartInputProcessing(stream, SourceType.Simulation, "Simulation");
+        }
+
+        private async void SimulationButton_Click(object sender, RoutedEventArgs e)
+        {
+            switch (SourceState)
+            {
+                case SourceState.Idle:
+                    await StartSimulationAsync();
+                    break;
+
+                case SourceState.Connecting:
+                case SourceState.Active:
+                    await StopInputProcessingAsync();
+                    break;
+            }
+        }
+
+        private void SimulationScenarioComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        {
+            if (sender is ComboBox comboBox && comboBox.SelectedItem is SimulationScenario scenario)
+            {
+                SelectedSimulationScenario = scenario;
+            }
+        }
+
+        #endregion
+
+
+        // Session.
+
+        private void ClearSessionButton_Click(object sender, RoutedEventArgs e)
+        {
+            ActiveSession?.Clear();
+            ActiveSession = null;
+
+            ObjectLayer.Children.Clear();
+            HideLatestObservationIndicator();
+
+            UpdateSampleDisplay(null);
+            UpdateObservationDisplay(null);
+        }
+
+        // Error.
 
         private void UpdateError(string? message)
         {
-            ErrorMessageTextBlock.Text = $"Error message: {message}";
-
-            ErrorMessageTextBlock.Visibility = string.IsNullOrEmpty(message)
+            ErrorMessageTextBlock.Text = message ?? string.Empty;
+            ErrorMessageBorder.Visibility = string.IsNullOrWhiteSpace(message)
                     ? Visibility.Collapsed
                     : Visibility.Visible;
         }
@@ -341,35 +1135,81 @@ namespace Sensus
         #endregion
 
 
+        #region Inspector panel
+
+        private void UpdateSampleDisplay(RangeSample? rangeSample)
+        {
+            SequenceDisplay = rangeSample.HasValue
+                ? $"{rangeSample.Value.Sequence}"
+                : "-";
+            SweepIdDisplay = rangeSample.HasValue
+                ? $"{rangeSample.Value.SweepId}"
+                : "-";
+            ElapsedDisplay = rangeSample.HasValue
+                ? $"{rangeSample.Value.ElapsedUs} μs"
+                : "-";
+            BearingDisplay = rangeSample.HasValue
+                ? $"{rangeSample.Value.BearingDegrees:F2} °"
+                : "-";
+            RoundTripDisplay = rangeSample.HasValue
+                ? $"{rangeSample.Value.RoundTripDurationUs} μs"
+                : "-";
+            StatusDisplay = rangeSample.HasValue
+                ? rangeSample.Value.Status.ToDisplayString()
+                : "-";
+        }
+
+        private void UpdateObservationDisplay(RangeObservation? rangeObservation)
+        {
+            ElapsedSecondsDisplay = rangeObservation.HasValue
+                ? $"{rangeObservation.Value.ElapsedSeconds:F2} s"
+                : "-";
+            DistanceDisplay = rangeObservation.HasValue
+                ? $"{rangeObservation.Value.DistanceCm:F2} cm"
+                : "-";
+            PositionXDisplay = rangeObservation.HasValue
+                ? $"{rangeObservation.Value.PositionXCm:F2} cm"
+                : "-";
+            PositionYDisplay = rangeObservation.HasValue
+                ? $"{rangeObservation.Value.PositionYCm:F2} cm"
+                : "-";
+            RangeStatusDisplay = rangeObservation.HasValue
+                ? rangeObservation.Value.RangeStatus.ToDisplayString()
+                : "-";
+        }
+
+        #endregion
+
+
+        #region Status Bar
+
+        private void UpdateMousePosition()
+        {
+            if (_latestMousePositionCm is not Point point)
+            {
+                MousePositionDisplay = "Undefined";
+
+                return;
+            }
+
+            MousePositionDisplay = $"{(int)point.X} × {(int)point.Y} cm";
+        }
+
+        #endregion
+
+
+        #endregion
+
+
         #region Rendering
 
-        private double WorldToScreenX(double worldX, double originScreenX, double scale)
-        {
-            return originScreenX + worldX * scale;
-        }
-
-        private double WorldToScreenY(double worldY, double originScreenY, double scale)
-        {
-            return originScreenY - worldY * scale;
-        }
-
-        private double ScreenToWorldX(double screenX, double originScreenX, double scale)
-        {
-            return (screenX - originScreenX) / scale;
-        }
-
-        private double ScreenToWorldY(double screenY, double originScreenY, double scale)
-        {
-            return (originScreenY - screenY) / scale;
-        }
-
-        private ViewportRenderParams CalculateViewportRenderParams(
+        private ViewportTransform CalculateViewportTransform(
             double canvasWidth,
             double canvasHeight
         )
         {
-            var left = (double)RulerThicknessPixels;
-            var top = (double)RulerThicknessPixels;
+            var left = RulerThicknessPixels;
+            var top = RulerThicknessPixels;
 
             var width = canvasWidth - left;
             var height = canvasHeight - top;
@@ -382,75 +1222,33 @@ namespace Sensus
             return new(left, top, width, height, originScreenX, originScreenY, cmToPixels);
         }
 
-        private void InitializeCanvasElements()
+        private ViewportTransform GetViewportTransform() => CalculateViewportTransform(ViewportHost.ActualWidth, ViewportHost.ActualHeight);
+
+        private GridLayout CalculateGridLayout(ViewportTransform transform)
         {
-            canvasBorderRectangle = new()
-            {
-                Stroke = _viewportRulerLineBrush,
-                StrokeThickness = StrokeThicknessSmall
-            };
+            var minWorldX = transform.ScreenToWorldX(transform.Left);
+            var maxWorldX = transform.ScreenToWorldX(transform.Left + transform.Width);
 
-            ViewportCanvas.Children.Add(canvasBorderRectangle);
-        }
+            var maxWorldY = transform.ScreenToWorldY(transform.Top);
+            var minWorldY = transform.ScreenToWorldY(transform.Top + transform.Height);
 
-        private void InitializeMeasurements()
-        {
-            measurementLine.Stroke = _viewportMeasurementBrush;
-            measurementLine.StrokeThickness = StrokeThicknessMedium;
+            var firstGridX = Math.Ceiling(minWorldX / MajorGridSpacingCm) * MajorGridSpacingCm;
+            var lastGridX = Math.Floor(maxWorldX / MajorGridSpacingCm) * MajorGridSpacingCm;
 
-            measurementEllipse.Stroke = null;
-            measurementEllipse.Fill = _viewportMeasurementBrush;
+            var firstGridY = Math.Ceiling(minWorldY / MajorGridSpacingCm) * MajorGridSpacingCm;
+            var lastGridY = Math.Floor(maxWorldY / MajorGridSpacingCm) * MajorGridSpacingCm;
 
-            ViewportCanvas.Children.Add(measurementLine);
-            ViewportCanvas.Children.Add(measurementEllipse);
-        }
+            var horizontalCount = (int)((lastGridY - firstGridY) / MajorGridSpacingCm) + 1;
+            var verticalCount = (int)((lastGridX - firstGridX) / MajorGridSpacingCm) + 1;
 
-        private void InitializeRanges()
-        {
-            maxRangeEllipse.Stroke = _viewportRangeStrokeBrush;
-            maxRangeEllipse.StrokeThickness = StrokeThicknessMedium;
-            maxRangeEllipse.StrokeDashArray = [1, 2];
-            maxRangeEllipse.Fill = _viewportRangeFillBrush;
-
-            minRangeEllipse.Stroke = _viewportRangeStrokeBrush;
-            minRangeEllipse.StrokeThickness = StrokeThicknessMedium;
-            minRangeEllipse.StrokeDashArray = [1, 2];
-            minRangeEllipse.Fill = _viewportRangeFillBrush;
-
-            ViewportCanvas.Children.Add(maxRangeEllipse);
-            ViewportCanvas.Children.Add(minRangeEllipse);
-        }
-
-        private void InitializeMousePosition()
-        {
-            mouseHoverPositionLabel.Foreground = _viewportRulerTextBrush;
-            mouseHoverPositionLabel.Text = "";
-            mouseHoverPositionLabel.HorizontalAlignment = HorizontalAlignment.Right;
-
-            mouseHoverPositionLabelBackground = new()
-            {
-                Stroke = _viewportRulerLineBrush,
-                StrokeThickness = StrokeThicknessSmall,
-                Fill = _viewportRulerBackgroundBrush
-            };
-
-            ViewportCanvas.Children.Add(mouseHoverPositionLabel);
-            ViewportCanvas.Children.Add(mouseHoverPositionLabelBackground);
-        }
-
-        private void InitializeViewport()
-        {
-            InitializeCanvasElements();
-            InitializeMeasurements();
-            InitializeRanges();
-            InitializeMousePosition();
+            return new(firstGridX, firstGridY, verticalCount, horizontalCount);
         }
 
         private (double Width, double Height) GetTextBlockSize(TextBlock textBlock)
         {
             // https://learn.microsoft.com/en-us/answers/questions/400490/how-to-get-the-actual-width-of-textblock
             var formatted = new FormattedText(
-                textBlock.Text, CultureInfo.CurrentUICulture, FlowDirection.LeftToRight,
+                textBlock.Text, CultureInfo.InvariantCulture, FlowDirection.LeftToRight,
                 new Typeface(textBlock.FontFamily, textBlock.FontStyle, textBlock.FontWeight, textBlock.FontStretch),
                 textBlock.FontSize, textBlock.Foreground, VisualTreeHelper.GetDpi(this).PixelsPerDip
             );
@@ -458,438 +1256,572 @@ namespace Sensus
             return (formatted.Width, formatted.Height);
         }
 
-        private (int Count, int HorizontalCount, int VerticalCount) CalculateRequiredLineCount(
-            ViewportRenderParams viewportRenderParams
-        )
+        private void PopulateGridLayer(GridLayout layout)
         {
-            var viewportWidthCm = viewportRenderParams.Width / viewportRenderParams.CmToPixels;
+            GridLayer.Children.Clear();
 
-            var verticalLineCount = (int)Math.Ceiling(viewportWidthCm / GridLineSpacingCm) + 1;
-            var horizontalLineCount = (int)Math.Ceiling(ViewportHeightCm / GridLineSpacingCm) + 1;
+            _horizontalGridLines.Clear();
+            _verticalGridLines.Clear();
 
-            return (
-                horizontalLineCount + verticalLineCount,
-                horizontalLineCount,
-                verticalLineCount
-            );
-        }
+            _horizontalGridRulerLabels.Clear();
+            _verticalGridRulerLabels.Clear();
 
-        private void EnsureGridElements(int requiredCount)
-        {
-            foreach (var line in _gridLines)
+            _horizontalMajorTicks.Clear();
+            _horizontalMinorTicks.Clear();
+
+            _verticalMajorTicks.Clear();
+            _verticalMinorTicks.Clear();
+
+
+            for (int i = 0; i < layout.HorizontalCount; i++)
             {
-                ViewportCanvas.Children.Remove(line);
-            }
-
-            _gridLines.Clear();
-
-            for (int i = 0; i < requiredCount; i++)
-            {
-                var line = new Line
+                _horizontalGridLines.Add(new()
                 {
                     Stroke = _viewportGridLineBrush,
                     StrokeThickness = StrokeThicknessSmall
-                };
+                });
 
-                _gridLines.Add(line);
-            }
-
-            foreach (var line in _gridLines)
-            {
-                ViewportCanvas.Children.Add(line);
-            }
-        }
-
-        private void EnsureRulerElements(int requiredCount)
-        {
-            // Ruler background.
-            ViewportCanvas.Children.Remove(rulerBackgroundRectangleHorizontal);
-            ViewportCanvas.Children.Remove(rulerBackgroundRectangleVertical);
-            ViewportCanvas.Children.Remove(rulerBackgroundRectangleCorner);
-
-            rulerBackgroundRectangleHorizontal = new()
-            {
-                Fill = _viewportRulerBackgroundBrush
-            };
-            rulerBackgroundRectangleVertical = new()
-            {
-                Fill = _viewportRulerBackgroundBrush
-            };
-            rulerBackgroundRectangleCorner = new()
-            {
-                Fill = _viewportRulerBackgroundBrush
-            };
-
-            ViewportCanvas.Children.Add(rulerBackgroundRectangleHorizontal);
-            ViewportCanvas.Children.Add(rulerBackgroundRectangleVertical);
-            ViewportCanvas.Children.Add(rulerBackgroundRectangleCorner);
-
-            // Ruler Borders.
-            ViewportCanvas.Children.Remove(rulerBorderLineHorizontal);
-            ViewportCanvas.Children.Remove(rulerBorderLineVertical);
-            ViewportCanvas.Children.Remove(rulerBorderLineDiagonal);
-
-            rulerBorderLineHorizontal = new()
-            {
-                Stroke = _viewportRulerLineBrush,
-                StrokeThickness = StrokeThicknessSmall
-            };
-            rulerBorderLineVertical = new()
-            {
-                Stroke = _viewportRulerLineBrush,
-                StrokeThickness = StrokeThicknessSmall
-            };
-            rulerBorderLineDiagonal = new()
-            {
-                Stroke = _viewportRulerLineBrush,
-                StrokeThickness = StrokeThicknessSmall
-            };
-
-            ViewportCanvas.Children.Add(rulerBorderLineHorizontal);
-            ViewportCanvas.Children.Add(rulerBorderLineVertical);
-            ViewportCanvas.Children.Add(rulerBorderLineDiagonal);
-
-            // Ruler labels.
-            foreach (var textBlock in _gridRulerLabels)
-            {
-                ViewportCanvas.Children.Remove(textBlock);
-            }
-
-            _gridRulerLabels.Clear();
-
-            foreach (var line in _gridRulerTicks)
-            {
-                ViewportCanvas.Children.Remove(line);
-            }
-
-            _gridRulerTicks.Clear();
-
-            for (int i = 0; i < requiredCount; i++)
-            {
-                _gridRulerLabels.Add(new()
+                _horizontalGridRulerLabels.Add(new()
                 {
                     Foreground = _viewportRulerTextBrush
                 });
-            }
 
-            foreach (var label in _gridRulerLabels)
-            {
-                ViewportCanvas.Children.Add(label);
-            }
-
-            // Ruler ticks.
-            for (int i = 0; i < requiredCount; i++)
-            {
-                _gridRulerTicks.Add(new()
+                _horizontalMajorTicks.Add(new()
                 {
                     Stroke = _viewportRulerLineBrush,
                     StrokeThickness = StrokeThicknessSmall
                 });
             }
 
-            foreach (var tick in _gridRulerTicks)
+            var horizontalMinorTickCount = Math.Max(0, layout.HorizontalCount - 1);
+            for (int i = 0; i < horizontalMinorTickCount; i++)
             {
-                ViewportCanvas.Children.Add(tick);
-            }
-        }
-
-        private void RenderCanvasBorder(ViewportRenderParams viewportRenderParams)
-        {
-            canvasBorderRectangle.Width = viewportRenderParams.Width + viewportRenderParams.Left;
-            canvasBorderRectangle.Height = viewportRenderParams.Height + viewportRenderParams.Top;
-
-            Canvas.SetLeft(canvasBorderRectangle, 0);
-            Canvas.SetTop(canvasBorderRectangle, 0);
-        }
-
-        private void RenderGrid(
-            ViewportRenderParams viewportRenderParams,
-            int horizontalCount,
-            int verticalCount
-        )
-        {
-            var gridSpacingPixels = GridLineSpacingCm * viewportRenderParams.CmToPixels;
-            var offsetX = viewportRenderParams.OriginScreenX % gridSpacingPixels;
-            var offsetY = viewportRenderParams.OriginScreenY % gridSpacingPixels;
-
-            for (int i = 0; i < verticalCount; i++)
-            {
-                var x = offsetX + i * gridSpacingPixels;
-
-                // TODO: Calculate the first visible grid line instead of skipping.
-                if (x < viewportRenderParams.Left)
+                _horizontalMinorTicks.Add(new()
                 {
-                    continue;
-                }
-
-                var line = _gridLines[i];
-                line.X1 = x;
-                line.Y1 = viewportRenderParams.Top;
-                line.X2 = x;
-                line.Y2 = viewportRenderParams.Height + viewportRenderParams.Top;
+                    Stroke = _viewportRulerLineBrush,
+                    StrokeThickness = StrokeThicknessSmall
+                });
             }
 
-            for (int j = 0; j < horizontalCount; j++)
+            for (int i = 0; i < layout.VerticalCount; i++)
             {
-                var y = offsetY + j * gridSpacingPixels;
-
-                // TODO: Calculate the first visible grid line instead of skipping.
-                if (y < viewportRenderParams.Top)
+                _verticalGridLines.Add(new()
                 {
-                    continue;
-                }
+                    Stroke = _viewportGridLineBrush,
+                    StrokeThickness = StrokeThicknessSmall
+                });
 
-                var line = _gridLines[j + verticalCount];
-                line.X1 = viewportRenderParams.Left;
-                line.Y1 = y;
-                line.X2 = viewportRenderParams.Width + viewportRenderParams.Left;
-                line.Y2 = y;
+                _verticalGridRulerLabels.Add(new()
+                {
+                    Foreground = _viewportRulerTextBrush
+                });
+
+                _verticalMajorTicks.Add(new()
+                {
+                    Stroke = _viewportRulerLineBrush,
+                    StrokeThickness = StrokeThicknessSmall
+                });
+            }
+
+            var verticalMinorTickCount = Math.Max(0, layout.VerticalCount - 1);
+            for (int i = 0; i < verticalMinorTickCount; i++)
+            {
+                _verticalMinorTicks.Add(new()
+                {
+                    Stroke = _viewportRulerLineBrush,
+                    StrokeThickness = StrokeThicknessSmall
+                });
+            }
+
+            // Grid border.
+            GridLayer.Children.Add(_canvasBorderRectangle);
+
+            // Ruler background.
+            GridLayer.Children.Add(_rulerBackgroundRectangleHorizontal);
+            GridLayer.Children.Add(_rulerBackgroundRectangleVertical);
+            GridLayer.Children.Add(_rulerBackgroundRectangleCorner);
+
+            // Ruler Borders.
+            GridLayer.Children.Add(_rulerBorderLineHorizontal);
+            GridLayer.Children.Add(_rulerBorderLineVertical);
+            GridLayer.Children.Add(_rulerBorderLineDiagonal);
+
+            // Grid lines.
+            foreach (var line in _horizontalGridLines)
+            {
+                GridLayer.Children.Add(line);
+            }
+
+            foreach (var line in _verticalGridLines)
+            {
+                GridLayer.Children.Add(line);
+            }
+
+            // Ruler labels.
+            foreach (var label in _horizontalGridRulerLabels)
+            {
+                GridLayer.Children.Add(label);
+            }
+
+            foreach (var label in _verticalGridRulerLabels)
+            {
+                GridLayer.Children.Add(label);
+            }
+
+            // Ruler ticks.
+            foreach (var line in _horizontalMajorTicks)
+            {
+                GridLayer.Children.Add(line);
+            }
+
+            foreach (var line in _horizontalMinorTicks)
+            {
+                GridLayer.Children.Add(line);
+            }
+
+            foreach (var line in _verticalMajorTicks)
+            {
+                GridLayer.Children.Add(line);
+            }
+
+            foreach (var line in _verticalMinorTicks)
+            {
+                GridLayer.Children.Add(line);
             }
         }
 
-        private void RenderRanges(ViewportRenderParams viewportRenderParams)
+        private void LayoutGridLines(ViewportTransform transform, GridLayout layout)
         {
-            var maxRadius = MaxRangeCm * viewportRenderParams.CmToPixels;
-            var minRadius = MinRangeCm * viewportRenderParams.CmToPixels;
+            _canvasBorderRectangle.Width = transform.Width + transform.Left;
+            _canvasBorderRectangle.Height = transform.Height + transform.Top;
 
-            maxRangeEllipse.Width = maxRadius * 2;
-            maxRangeEllipse.Height = maxRadius * 2;
+            Canvas.SetLeft(_canvasBorderRectangle, 0);
+            Canvas.SetTop(_canvasBorderRectangle, 0);
 
-            Canvas.SetLeft(maxRangeEllipse, viewportRenderParams.OriginScreenX - maxRadius);
-            Canvas.SetTop(maxRangeEllipse, viewportRenderParams.OriginScreenY - maxRadius);
+            for (var i = 0; i < layout.VerticalCount; i++)
+            {
+                var worldX = layout.FirstX + i * MajorGridSpacingCm;
+                var screenX = transform.WorldToScreenX(worldX);
 
-            minRangeEllipse.Width = minRadius * 2;
-            minRangeEllipse.Height = minRadius * 2;
+                var line = _verticalGridLines[i];
 
-            Canvas.SetLeft(minRangeEllipse, viewportRenderParams.OriginScreenX - minRadius);
-            Canvas.SetTop(minRangeEllipse, viewportRenderParams.OriginScreenY - minRadius);
+                line.X1 = screenX;
+                line.Y1 = transform.Top;
+                line.X2 = screenX;
+                line.Y2 = transform.Top + transform.Height;
+            }
+
+            for (var j = 0; j < layout.HorizontalCount; j++)
+            {
+                var worldY = layout.FirstY + j * MajorGridSpacingCm;
+                var screenY = transform.WorldToScreenY(worldY);
+
+                var line = _horizontalGridLines[j];
+
+                line.X1 = transform.Left;
+                line.Y1 = screenY;
+                line.X2 = transform.Width + transform.Left;
+                line.Y2 = screenY;
+            }
         }
 
-        private void RenderMeasurement(ViewportRenderParams viewportRenderParams, double distanceCm)
-        {
-            var stroke = distanceCm > MaxRangeCm
-                ? _viewportMeasurementErrorBrush
-                : _viewportMeasurementBrush;
-
-            var measurementHeight = distanceCm * viewportRenderParams.CmToPixels;
-
-            measurementLine.X1 = viewportRenderParams.OriginScreenX;
-            measurementLine.Y1 = viewportRenderParams.OriginScreenY;
-            measurementLine.X2 = viewportRenderParams.OriginScreenX;
-            measurementLine.Y2 = viewportRenderParams.OriginScreenY - measurementHeight;
-
-            measurementLine.Stroke = stroke;
-
-            var radius = 4;
-
-            measurementEllipse.Width = radius * 2;
-            measurementEllipse.Height = radius * 2;
-            measurementEllipse.Fill = stroke;
-
-            Canvas.SetLeft(
-                measurementEllipse,
-                measurementLine.X2 - radius
-            );
-            Canvas.SetTop(
-                measurementEllipse,
-                measurementLine.Y2 - radius
-            );
-        }
-
-        private void RenderRulers(
-            ViewportRenderParams viewportRenderParams,
-            int horizontalCount,
-            int verticalCount
-        )
+        private void LayoutRulers(ViewportTransform transform, GridLayout layout)
         {
             // Ruler background.
-            rulerBackgroundRectangleHorizontal.Width = viewportRenderParams.Width;
-            rulerBackgroundRectangleHorizontal.Height = viewportRenderParams.Top;
+            _rulerBackgroundRectangleHorizontal.Width = transform.Width;
+            _rulerBackgroundRectangleHorizontal.Height = transform.Top;
 
-            Canvas.SetLeft(rulerBackgroundRectangleHorizontal, viewportRenderParams.Left);
-            Canvas.SetTop(rulerBackgroundRectangleHorizontal, 0);
+            Canvas.SetLeft(_rulerBackgroundRectangleHorizontal, transform.Left);
+            Canvas.SetTop(_rulerBackgroundRectangleHorizontal, 0);
 
-            rulerBackgroundRectangleVertical.Width = viewportRenderParams.Left;
-            rulerBackgroundRectangleVertical.Height = viewportRenderParams.Height;
+            _rulerBackgroundRectangleVertical.Width = transform.Left;
+            _rulerBackgroundRectangleVertical.Height = transform.Height;
 
-            Canvas.SetLeft(rulerBackgroundRectangleVertical, 0);
-            Canvas.SetTop(rulerBackgroundRectangleVertical, viewportRenderParams.Top);
+            Canvas.SetLeft(_rulerBackgroundRectangleVertical, 0);
+            Canvas.SetTop(_rulerBackgroundRectangleVertical, transform.Top);
 
-            rulerBackgroundRectangleCorner.Width = viewportRenderParams.Left;
-            rulerBackgroundRectangleCorner.Height = viewportRenderParams.Top;
+            _rulerBackgroundRectangleCorner.Width = transform.Left;
+            _rulerBackgroundRectangleCorner.Height = transform.Top;
 
-            Canvas.SetLeft(rulerBackgroundRectangleCorner, 0);
-            Canvas.SetTop(rulerBackgroundRectangleCorner, 0);
+            Canvas.SetLeft(_rulerBackgroundRectangleCorner, 0);
+            Canvas.SetTop(_rulerBackgroundRectangleCorner, 0);
 
             // Ruler borders.
-            rulerBorderLineHorizontal.X1 = 0;
-            rulerBorderLineHorizontal.Y1 = viewportRenderParams.Top;
-            rulerBorderLineHorizontal.X2 = viewportRenderParams.Width + viewportRenderParams.Left;
-            rulerBorderLineHorizontal.Y2 = viewportRenderParams.Top;
+            _rulerBorderLineHorizontal.X1 = 0;
+            _rulerBorderLineHorizontal.Y1 = transform.Top;
+            _rulerBorderLineHorizontal.X2 = transform.Width + transform.Left;
+            _rulerBorderLineHorizontal.Y2 = transform.Top;
 
-            rulerBorderLineVertical.X1 = viewportRenderParams.Left;
-            rulerBorderLineVertical.Y1 = 0;
-            rulerBorderLineVertical.X2 = viewportRenderParams.Left;
-            rulerBorderLineVertical.Y2 = viewportRenderParams.Height + viewportRenderParams.Top;
+            _rulerBorderLineVertical.X1 = transform.Left;
+            _rulerBorderLineVertical.Y1 = 0;
+            _rulerBorderLineVertical.X2 = transform.Left;
+            _rulerBorderLineVertical.Y2 = transform.Height + transform.Top;
 
-            rulerBorderLineDiagonal.X1 = 0;
-            rulerBorderLineDiagonal.Y1 = 0;
-            rulerBorderLineDiagonal.X2 = viewportRenderParams.Left;
-            rulerBorderLineDiagonal.Y2 = viewportRenderParams.Top;
+            _rulerBorderLineDiagonal.X1 = 0;
+            _rulerBorderLineDiagonal.Y1 = 0;
+            _rulerBorderLineDiagonal.X2 = transform.Left;
+            _rulerBorderLineDiagonal.Y2 = transform.Top;
 
-            // Ruler labels and ruler ticks.
-            var viewportWidthCm = viewportRenderParams.Width / viewportRenderParams.CmToPixels;
-
-            var gridSpacingPixels = GridLineSpacingCm * viewportRenderParams.CmToPixels;
-            var rulerLabelOffsetPixels = (RulerThicknessPixels / 2) - 5;
-            var offsetX = viewportRenderParams.OriginScreenX % gridSpacingPixels;
-            var offsetY = viewportRenderParams.OriginScreenY % gridSpacingPixels;
-
-            var originLineIndexX = (int)((viewportRenderParams.OriginScreenX - offsetX) / gridSpacingPixels);
-            var originLineIndexY = (int)((viewportRenderParams.OriginScreenY - offsetY) / gridSpacingPixels);
-
-            for (int i = 0; i < verticalCount; i++)
+            for (var i = 0; i < layout.VerticalCount; i++)
             {
-                var x = offsetX + i * gridSpacingPixels;
+                var worldX = layout.FirstX + i * MajorGridSpacingCm;
+                var screenX = transform.WorldToScreenX(worldX);
 
-                var label = _gridRulerLabels[i];
-                var labelValue = (i - originLineIndexX) * GridLineSpacingCm;
-
-                label.Text = $"{labelValue} cm";
+                var label = _verticalGridRulerLabels[i];
+                label.Text = $"{worldX} cm";
 
                 var (labelWidth, _) = GetTextBlockSize(label);
-                var labelLeft = x - labelWidth / 2;
-                var labelRight = x + labelWidth / 2;
+                var labelLeft = screenX - labelWidth / 2;
+                var labelRight = screenX + labelWidth / 2;
 
                 Canvas.SetLeft(label, labelLeft);
-                Canvas.SetTop(label, rulerLabelOffsetPixels);
+                Canvas.SetTop(label, 0);
 
-                var labelFitsHorizontally = labelLeft >= RulerThicknessPixels && labelRight <= viewportRenderParams.Width;
-                label.Visibility = labelFitsHorizontally ? Visibility.Visible : Visibility.Collapsed;
+                var tick = _verticalMajorTicks[i];
 
-                var tick = _gridRulerTicks[i];
-                tick.X1 = x;
-                tick.Y1 = 0;
-                tick.X2 = x;
-                tick.Y2 = rulerLabelOffsetPixels;
+                tick.X1 = screenX;
+                tick.Y1 = transform.Top;
+                tick.X2 = screenX;
+                tick.Y2 = transform.Top - MajorRulerTickLengthPixels;
 
-                tick.Visibility = labelFitsHorizontally ? Visibility.Visible : Visibility.Collapsed;
+                // Make sure that ticks and labels are not shown when close to the edges of the ruler.
+                var rulerLeft = transform.Left;
+                var rulerRight = transform.Left + transform.Width;
+
+                var markFitsHorizontally =
+                    screenX >= rulerLeft + RulerEdgePaddingPixels &&
+                    screenX <= rulerRight - RulerEdgePaddingPixels &&
+                    labelLeft >= rulerLeft &&
+                    labelRight <= rulerRight;
+
+                label.Visibility = markFitsHorizontally ? Visibility.Visible : Visibility.Collapsed;
+                tick.Visibility = markFitsHorizontally ? Visibility.Visible : Visibility.Collapsed;
             }
 
-            for (int j = 0; j < horizontalCount; j++)
+            for (var j = 0; j < layout.HorizontalCount; j++)
             {
-                var y = offsetY + j * gridSpacingPixels;
+                var worldY = layout.FirstY + j * MajorGridSpacingCm;
+                var screenY = transform.WorldToScreenY(worldY);
 
-                var label = _gridRulerLabels[j + verticalCount];
-                var labelValue = (originLineIndexY - j) * GridLineSpacingCm;
-
-                label.Text = $"{labelValue} cm";
+                var label = _horizontalGridRulerLabels[j];
+                label.Text = $"{worldY} cm";
 
                 var (labelWidth, _) = GetTextBlockSize(label);
-                var labelTop = y - labelWidth / 2;
-                var labelBottom = y + labelWidth / 2;
+                var labelTop = screenY - labelWidth / 2;
+                var labelBottom = screenY + labelWidth / 2;
 
-                Canvas.SetLeft(label, rulerLabelOffsetPixels);
+                Canvas.SetLeft(label, 0);
                 Canvas.SetTop(label, labelTop);
-
-                var labelFitsVertically = labelTop >= RulerThicknessPixels && labelBottom <= viewportRenderParams.Height;
-                label.Visibility = labelFitsVertically ? Visibility.Visible : Visibility.Collapsed;
 
                 label.LayoutTransform = new RotateTransform(270);
 
-                var tick = _gridRulerTicks[j + verticalCount];
-                tick.X1 = 0;
-                tick.Y1 = y;
-                tick.X2 = rulerLabelOffsetPixels;
-                tick.Y2 = y;
+                var tick = _horizontalMajorTicks[j];
 
-                tick.Visibility = labelFitsVertically ? Visibility.Visible : Visibility.Collapsed;
+                tick.X1 = transform.Left;
+                tick.Y1 = screenY;
+                tick.X2 = transform.Left - MajorRulerTickLengthPixels;
+                tick.Y2 = screenY;
+
+                var rulerTop = transform.Top;
+                var rulerBottom = transform.Top + transform.Height;
+
+                var markFitsVertically =
+                    screenY >= rulerTop + RulerEdgePaddingPixels &&
+                    screenY <= rulerBottom - RulerEdgePaddingPixels &&
+                    labelTop >= rulerTop &&
+                    labelBottom <= rulerBottom;
+
+                label.Visibility = markFitsVertically ? Visibility.Visible : Visibility.Collapsed;
+                tick.Visibility = markFitsVertically ? Visibility.Visible : Visibility.Collapsed;
+            }
+
+            var verticalMinorTickCount = Math.Max(0, layout.VerticalCount - 1);
+            for (var i = 0; i < verticalMinorTickCount; i++)
+            {
+                var worldX = layout.FirstX + i * MajorGridSpacingCm + MinorRulerTickOffsetCm;
+                var screenX = transform.WorldToScreenX(worldX);
+
+                var tick = _verticalMinorTicks[i];
+
+                tick.X1 = screenX;
+                tick.Y1 = transform.Top;
+                tick.X2 = screenX;
+                tick.Y2 = transform.Top - MinorRulerTickLengthPixels;
+
+                // Make sure that ticks are not shown when close to the edges of the ruler.
+                var rulerLeft = transform.Left;
+                var rulerRight = transform.Left + transform.Width;
+
+                var markFitsHorizontally =
+                    screenX >= rulerLeft + RulerEdgePaddingPixels &&
+                    screenX <= rulerRight - RulerEdgePaddingPixels;
+
+                tick.Visibility = markFitsHorizontally ? Visibility.Visible : Visibility.Collapsed;
+            }
+
+            var horizontalMinorTickCount = Math.Max(0, layout.HorizontalCount - 1);
+            for (var j = 0; j < horizontalMinorTickCount; j++)
+            {
+                var worldY = layout.FirstY + j * MajorGridSpacingCm + MinorRulerTickOffsetCm;
+                var screenY = transform.WorldToScreenY(worldY);
+
+                var tick = _horizontalMinorTicks[j];
+
+                tick.X1 = transform.Left;
+                tick.Y1 = screenY;
+                tick.X2 = transform.Left - MinorRulerTickLengthPixels;
+                tick.Y2 = screenY;
+
+                var rulerTop = transform.Top;
+                var rulerBottom = transform.Top + transform.Height;
+
+                var markFitsVertically =
+                    screenY >= rulerTop + RulerEdgePaddingPixels &&
+                    screenY <= rulerBottom - RulerEdgePaddingPixels;
+
+                tick.Visibility = markFitsVertically ? Visibility.Visible : Visibility.Collapsed;
             }
         }
 
-        private void RenderMousePosition(ViewportRenderParams viewportRenderParams)
+        private void InitializeGizmoLayer()
         {
-            if (latestMousePositionCm is not Point point)
-            {
-                mouseHoverPositionLabel.Text = "";
-                mouseHoverPositionLabel.Visibility = Visibility.Collapsed;
+            _scannerOriginMarker.Width = ScannerMarkerDiameterPixels;
+            _scannerOriginMarker.Height = ScannerMarkerDiameterPixels;
+            _scannerOriginMarker.Fill = _viewportRulerBackgroundBrush;
+            _scannerOriginMarker.Stroke = _viewportObservationBrush;
+            _scannerOriginMarker.StrokeThickness = StrokeThicknessMedium;
 
-                mouseHoverPositionLabelBackground.Visibility = Visibility.Collapsed;
+            _scannerForwardMarker.Stroke = _viewportObservationBrush;
+            _scannerForwardMarker.StrokeThickness = StrokeThicknessMedium;
+
+            _observationLine.Visibility = Visibility.Visible;
+            _observationEndpointEllipse.Visibility = Visibility.Visible;
+
+            _layoutScannerCoveragePathFigure.Segments.Add(_layoutScannerCoverageMinBearingLineSegment);
+            _layoutScannerCoveragePathFigure.Segments.Add(_layoutScannerCoverageOuterArcSegment);
+            _layoutScannerCoveragePathFigure.Segments.Add(_layoutScannerCoverageMaxBearingLineSegment);
+            _layoutScannerCoveragePathFigure.Segments.Add(_layoutScannerCoverageInnerArcSegment);
+
+            _layoutScannerCoveragePathGeometry.Figures.Add(_layoutScannerCoveragePathFigure);
+
+            _layoutScannerCoveragePath.Data = _layoutScannerCoveragePathGeometry;
+            _layoutScannerCoveragePath.Stroke = _viewportRangeStrokeBrush;
+            _layoutScannerCoveragePath.StrokeThickness = StrokeThicknessMedium;
+            _layoutScannerCoveragePath.StrokeDashArray = [1, 2];
+            _layoutScannerCoveragePath.Fill = _viewportRangeFillBrush;
+
+            GizmoLayer.Children.Add(_layoutScannerCoveragePath);
+
+            GizmoLayer.Children.Add(_observationLine);
+            GizmoLayer.Children.Add(_observationEndpointEllipse);
+
+            GizmoLayer.Children.Add(_scannerForwardMarker);
+            GizmoLayer.Children.Add(_scannerOriginMarker);
+        }
+
+        private Point GetScreenPointAtBearing(ViewportTransform transform, double bearingDegrees, double rangeCm)
+        {
+            var bearingRadians = double.DegreesToRadians(bearingDegrees);
+
+            return new(
+                transform.WorldToScreenX(Math.Sin(bearingRadians) * rangeCm),
+                transform.WorldToScreenY(Math.Cos(bearingRadians) * rangeCm)
+            );
+        }
+        private void LayoutScannerMarker(ViewportTransform transform)
+        {
+            var markerRadius = _scannerOriginMarker.Width / 2.0;
+
+            Canvas.SetLeft(_scannerOriginMarker, transform.OriginScreenX - markerRadius);
+            Canvas.SetTop(_scannerOriginMarker, transform.OriginScreenY - markerRadius);
+
+            _scannerForwardMarker.X1 = transform.OriginScreenX;
+            _scannerForwardMarker.Y1 = transform.OriginScreenY - markerRadius;
+
+            _scannerForwardMarker.X2 = transform.OriginScreenX;
+            _scannerForwardMarker.Y2 = transform.OriginScreenY - markerRadius - ScannerForwardMarkerLengthPixels;
+        }
+
+        private void LayoutScannerCoverage(ViewportTransform transform)
+        {
+            var minRangeCm = _scannerDefinition.RangeSensor.MinRangeCm;
+            var maxRangeCm = _scannerDefinition.RangeSensor.MaxRangeCm;
+
+            var minRadiusPixels = minRangeCm * transform.CmToPixels;
+            var maxRadiusPixels = maxRangeCm * transform.CmToPixels;
+
+            var minBearingInnerPoint = GetScreenPointAtBearing(transform, MinBearingDegrees, minRangeCm);
+            var minBearingOuterPoint = GetScreenPointAtBearing(transform, MinBearingDegrees, maxRangeCm);
+
+            var maxBearingOuterPoint = GetScreenPointAtBearing(transform, MaxBearingDegrees, maxRangeCm);
+            var maxBearingInnerPoint = GetScreenPointAtBearing(transform, MaxBearingDegrees, minRangeCm);
+
+            var sweepAngleDegrees = MaxBearingDegrees - MinBearingDegrees;
+            var isLargeArc = sweepAngleDegrees > 180.0;
+
+            _layoutScannerCoveragePathFigure.StartPoint = minBearingInnerPoint;
+
+            _layoutScannerCoverageMinBearingLineSegment.Point = minBearingOuterPoint;
+
+            _layoutScannerCoverageOuterArcSegment.Point = maxBearingOuterPoint;
+            _layoutScannerCoverageOuterArcSegment.Size = new(maxRadiusPixels, maxRadiusPixels);
+            _layoutScannerCoverageOuterArcSegment.SweepDirection = SweepDirection.Clockwise;
+            _layoutScannerCoverageOuterArcSegment.IsLargeArc = isLargeArc;
+
+            _layoutScannerCoverageMaxBearingLineSegment.Point = maxBearingInnerPoint;
+
+            _layoutScannerCoverageInnerArcSegment.Point = minBearingInnerPoint;
+            _layoutScannerCoverageInnerArcSegment.Size = new(minRadiusPixels, minRadiusPixels);
+            _layoutScannerCoverageInnerArcSegment.SweepDirection = SweepDirection.Counterclockwise;
+            _layoutScannerCoverageInnerArcSegment.IsLargeArc = isLargeArc;
+        }
+
+        private void ShowLatestObservationIndicator(
+            ViewportTransform transform,
+            RangeObservation observation
+        )
+        {
+            _observationLine.Visibility = Visibility.Visible;
+            _observationEndpointEllipse.Visibility = Visibility.Visible;
+
+            var x = transform.WorldToScreenX(observation.PositionXCm);
+            var y = transform.WorldToScreenY(observation.PositionYCm);
+
+            _observationLine.X1 = transform.OriginScreenX;
+            _observationLine.Y1 = transform.OriginScreenY;
+            _observationLine.X2 = x;
+            _observationLine.Y2 = y;
+
+            var stroke = observation.Sample.Status == SampleStatus.Valid && observation.RangeStatus == RangeStatus.InRange
+                ? _viewportObservationBrush
+                : _viewportObservationErrorBrush;
+
+            _observationLine.Stroke = stroke;
+
+            _observationEndpointEllipse.Width = ObservationMarkerRadiusPixels * 2;
+            _observationEndpointEllipse.Height = ObservationMarkerRadiusPixels * 2;
+            _observationEndpointEllipse.Fill = stroke;
+
+            Canvas.SetLeft(_observationEndpointEllipse, _observationLine.X2 - ObservationMarkerRadiusPixels);
+            Canvas.SetTop(_observationEndpointEllipse, _observationLine.Y2 - ObservationMarkerRadiusPixels);
+        }
+
+        private void HideLatestObservationIndicator()
+        {
+            _observationLine.Visibility = Visibility.Collapsed;
+            _observationEndpointEllipse.Visibility = Visibility.Collapsed;
+        }
+
+        private void AddObservationPoint(
+            ViewportTransform transform,
+            RangeObservation observation
+        )
+        {
+            var stroke = observation.Sample.Status == SampleStatus.Valid && observation.RangeStatus == RangeStatus.InRange
+                ? _viewportObservationBrush
+                : _viewportObservationErrorBrush;
+
+            var ellipse = new Ellipse()
+            {
+                Width = ObservationMarkerRadiusPixels * 2,
+                Height = ObservationMarkerRadiusPixels * 2,
+                Fill = stroke
+            };
+
+            var x = transform.WorldToScreenX(observation.PositionXCm);
+            var y = transform.WorldToScreenY(observation.PositionYCm);
+
+            Canvas.SetLeft(ellipse, x - ObservationMarkerRadiusPixels);
+            Canvas.SetTop(ellipse, y - ObservationMarkerRadiusPixels);
+
+            ObjectLayer.Children.Add(ellipse);
+
+            _observationLine.Visibility = Visibility.Collapsed;
+            _observationEndpointEllipse.Visibility = Visibility.Collapsed;
+        }
+
+        private void PopulateObservationLayer(ViewportTransform transform)
+        {
+            ObjectLayer.Children.Clear();
+
+            if (ActiveSession is null)
+            {
+                return;
+            }
+
+            foreach (var observation in ActiveSession.Observations)
+            {
+                AddObservationPoint(transform, observation);
+            }
+        }
+
+        private void LayoutViewportForCurrentSize()
+        {
+            var transform = GetViewportTransform();
+            var gridLayout = CalculateGridLayout(transform);
+
+            PopulateGridLayer(gridLayout);
+
+            LayoutGridLines(transform, gridLayout);
+            LayoutRulers(transform, gridLayout);
+
+            LayoutScannerCoverage(transform);
+            LayoutScannerMarker(transform);
+
+            PopulateObservationLayer(transform);
+
+            if (ActiveSession?.LatestObservation is RangeObservation observation)
+            {
+                ShowLatestObservationIndicator(transform, observation);
+            }
+            else
+            {
+                HideLatestObservationIndicator();
+            }
+        }
+
+        private void ViewportHost_SizeChanged(object sender, SizeChangedEventArgs e)
+        {
+            LayoutViewportForCurrentSize();
+        }
+
+        private void ViewportHost_MouseMove(object sender, System.Windows.Input.MouseEventArgs e)
+        {
+            var position = e.GetPosition(ViewportHost);
+            var transform = GetViewportTransform();
+
+            if (position.X < transform.Left ||
+                position.Y < transform.Top ||
+                position.X > transform.Left + transform.Width ||
+                position.Y > transform.Top + transform.Height
+            )
+            {
+                _latestMousePositionCm = null;
+                UpdateMousePosition();
 
                 return;
             }
 
-            var x = point.X;
-            var y = point.Y;
+            var x = position.X;
+            var y = position.Y;
 
-            var screenX = WorldToScreenX(
-                x,
-                viewportRenderParams.OriginScreenX,
-                viewportRenderParams.CmToPixels
-            );
-            var screenY = WorldToScreenY(
-                y,
-                viewportRenderParams.OriginScreenY,
-                viewportRenderParams.CmToPixels
-            );
+            var worldX = transform.ScreenToWorldX(x);
+            var worldY = transform.ScreenToWorldY(y);
 
-            mouseHoverPositionLabel.Text = $"{(int)x} × {(int)y}";
-            mouseHoverPositionLabel.Visibility = Visibility.Visible;
-
-            var (labelWidth, labelHeight) = GetTextBlockSize(mouseHoverPositionLabel);
-            var padding = 25;
-
-            var labelX = viewportRenderParams.Width - labelWidth - padding;
-            var labelY = viewportRenderParams.Height - labelHeight - padding;
-
-            Canvas.SetLeft(mouseHoverPositionLabel, labelX);
-            Canvas.SetTop(mouseHoverPositionLabel, labelY);
-
-            mouseHoverPositionLabelBackground.Width = labelWidth + padding;
-            mouseHoverPositionLabelBackground.Height = labelHeight + padding;
-            mouseHoverPositionLabelBackground.Visibility = Visibility.Visible;
-
-            Canvas.SetLeft(mouseHoverPositionLabelBackground, labelX - padding / 2);
-            Canvas.SetTop(mouseHoverPositionLabelBackground, labelY - padding / 2);
+            _latestMousePositionCm = new(worldX, worldY);
+            UpdateMousePosition();
         }
 
-        private void RenderViewport(double distanceCm)
+        private void ViewportHost_MouseLeave(object sender, System.Windows.Input.MouseEventArgs e)
         {
-            if (ViewportCanvas.ActualWidth <= 0 || ViewportCanvas.ActualHeight <= 0)
-            {
-                return;
-            }
-
-            var viewportRenderParams = CalculateViewportRenderParams(
-                ViewportCanvas.ActualWidth,
-                ViewportCanvas.ActualHeight
-            );
-
-            var (requiredCount, horizontalCount, verticalCount) = CalculateRequiredLineCount(
-                viewportRenderParams
-            );
-
-            EnsureGridElements(requiredCount);
-            EnsureRulerElements(requiredCount);
-
-            RenderCanvasBorder(viewportRenderParams);
-            RenderGrid(viewportRenderParams, horizontalCount, verticalCount);
-            RenderRanges(viewportRenderParams);
-            RenderMeasurement(viewportRenderParams, distanceCm);
-            RenderRulers(viewportRenderParams, horizontalCount, verticalCount);
-            RenderMousePosition(viewportRenderParams);
+            _latestMousePositionCm = null;
+            UpdateMousePosition();
         }
 
         #endregion
 
 
-        #region Window / UI
-
-        private void MainWindow_Loaded(object sender, RoutedEventArgs e)
-        {
-            UpdateWindowFrame();
-            RenderViewport(latestDistanceCm);
-        }
+        #region Window Chrome
 
         protected override void OnStateChanged(EventArgs e)
         {
@@ -903,139 +1835,15 @@ namespace Sensus
             UpdateWindowFrame();
         }
 
-        protected override void OnClosed(EventArgs e)
-        {
-            inputProcessingCancellationTokenSource?.Cancel();
-            CloseSerialPort();
-            _ = StopInputProcessing();
-
-            base.OnClosed(e);
-        }
-
-        private void ViewportCanvas_SizeChanged(object sender, SizeChangedEventArgs e)
-        {
-            RenderViewport(latestDistanceCm);
-        }
-
-        private void ViewportCanvas_MouseMove(object sender, System.Windows.Input.MouseEventArgs e)
-        {
-            if (ViewportCanvas.Width <= 0 || ViewportCanvas.Height <= 0)
-            {
-                return;
-            }
-
-            var position = e.GetPosition(ViewportCanvas);
-
-            var viewportRenderParams = CalculateViewportRenderParams(
-                ViewportCanvas.ActualWidth,
-                ViewportCanvas.ActualHeight
-            );
-
-            var worldX = ScreenToWorldX(
-                position.X,
-                viewportRenderParams.OriginScreenX,
-                viewportRenderParams.CmToPixels
-            );
-            var worldY = ScreenToWorldY(
-                position.Y,
-                viewportRenderParams.OriginScreenY,
-                viewportRenderParams.CmToPixels
-            );
-
-            latestMousePositionCm = new(worldX, worldY);
-
-            RenderViewport(latestDistanceCm);
-        }
-
-        private void ViewportCanvas_MouseLeave(object sender, System.Windows.Input.MouseEventArgs e)
-        {
-            latestMousePositionCm = null;
-
-            RenderViewport(latestDistanceCm);
-        }
-
-        private void RefreshButton_Click(object sender, RoutedEventArgs e)
-        {
-            RefreshSerialPorts();
-        }
-
-        private async void ConnectButton_Click(object sender, RoutedEventArgs e)
-        {
-            if (selectedSerialPortName == SerialPortNameDefault)
-            {
-                UpdateConnectionStatus("Error");
-                UpdateError("Please select a serial port");
-
-                return;
-            }
-
-            await StopInputProcessing();
-            CloseSerialPort();
-
-            if (OpenSerialPort(selectedSerialPortName, BaudRateDefault))
-            {
-                await StartInputProcessing(_serialPort.BaseStream);
-            }
-        }
-
-        private async void DisconnectButton_Click(object sender, RoutedEventArgs e)
-        {
-            await StopInputProcessing();
-            CloseSerialPort();
-
-            latestDistanceCm = 0;
-
-            RenderViewport(latestDistanceCm);
-            UpdateSample(null, null);
-        }
-
-        private async void StartSimulationButton_Click(object sender, RoutedEventArgs e)
-        {
-            await StopInputProcessing();
-            CloseSerialPort();
-
-            _scannerSimulationStream = new(
-                ScannerSimulationGenerator.IncreasingRangeCyclic,
-                _rangeSampleSerializerService
-            );
-
-            await StartInputProcessing(_scannerSimulationStream);
-        }
-
-        private async void StopSimulationButton_Click(object sender, RoutedEventArgs e)
-        {
-            if (ReferenceEquals(inputProcessingStream, _scannerSimulationStream))
-            {
-                await StopInputProcessing();
-            }
-
-            _scannerSimulationStream = null;
-
-            latestDistanceCm = 0;
-
-            RenderViewport(latestDistanceCm);
-            UpdateSample(null, null);
-        }
-
-        private void ValidPortsComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
-        {
-            if (sender is ComboBox comboBox && comboBox.SelectedValue is string selectedValue)
-            {
-                selectedSerialPortName = selectedValue;
-            }
-        }
-
-        #endregion
-
-
-        #region Window Chrome
-
         private void UpdateWindowFrame()
         {
             if (WindowLayout is null)
             {
                 return;
             }
+
+            // Remove the strong border thickness when the window is maximized.
+            WindowBorder.BorderThickness = WindowState == WindowState.Maximized ? new(0) : new(1);
 
             if (WindowState != WindowState.Maximized)
             {
@@ -1054,8 +1862,10 @@ namespace Sensus
             var dpi = VisualTreeHelper.GetDpi(this);
             var nativeDpi = (uint)Math.Round(96 * dpi.DpiScaleX);
             var padding = GetSystemMetricsForDpi(SM_CXPADDEDBORDER, nativeDpi);
+
             var horizontal = (GetSystemMetricsForDpi(SM_CXSIZEFRAME, nativeDpi) + padding) / dpi.DpiScaleX;
             var vertical = (GetSystemMetricsForDpi(SM_CYSIZEFRAME, nativeDpi) + padding) / dpi.DpiScaleY;
+
             WindowLayout.Margin = new(horizontal, vertical, horizontal, vertical);
         }
 

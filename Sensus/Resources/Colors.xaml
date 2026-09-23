@@ -2,14 +2,12 @@
     <!--  Radix Slate  -->
     <Color x:Key="Slate1Color">#FCFCFD</Color>
     <Color x:Key="Slate2Color">#F9F9FB</Color>
-    <Color x:Key="Slate3Color">#F0F0F3</Color>
     <Color x:Key="Slate4Color">#E8E8EC</Color>
     <Color x:Key="Slate5Color">#E0E1E6</Color>
     <Color x:Key="Slate6Color">#D9D9E0</Color>
     <Color x:Key="Slate7Color">#CDCED6</Color>
     <Color x:Key="Slate8Color">#B9BBC6</Color>
     <Color x:Key="Slate9Color">#8B8D98</Color>
-    <Color x:Key="Slate10Color">#80838D</Color>
     <Color x:Key="Slate11Color">#60646C</Color>
     <Color x:Key="Slate12Color">#1C2024</Color>
 
@@ -17,14 +15,12 @@
     <Color x:Key="Red9Color">#E5484D</Color>
     <Color x:Key="Red10Color">#DC3E42</Color>
 
-    <!--  Accent  -->
-    <Color x:Key="AccentColor">#008000</Color>
-    <Color x:Key="ErrorColor">#FF4500</Color>
+    <!--  Radix Grass  -->
+    <Color x:Key="Grass9Color">#46A758</Color>
 
     <!--  Semantic brushes  -->
     <SolidColorBrush x:Key="TextBrush" Color="{StaticResource Slate12Color}" />
-    <SolidColorBrush x:Key="BackgroundBrush" Color="{StaticResource Slate3Color}" />
-    <SolidColorBrush x:Key="BackgroundGridLineBrush" Color="{StaticResource Slate7Color}" />
+    <SolidColorBrush x:Key="TextBrushSecondary" Color="{StaticResource Slate11Color}" />
     <SolidColorBrush x:Key="ShellBrush" Color="{StaticResource Slate5Color}" />
     <SolidColorBrush x:Key="WorkspaceBrush" Color="{StaticResource Slate4Color}" />
     <SolidColorBrush x:Key="AppSurfaceBrush" Color="{StaticResource Slate2Color}" />
@@ -32,19 +28,19 @@
     <SolidColorBrush x:Key="BorderSubtleBrush" Color="{StaticResource Slate6Color}" />
     <SolidColorBrush x:Key="BorderBrush" Color="{StaticResource Slate7Color}" />
     <SolidColorBrush x:Key="BorderStrongBrush" Color="{StaticResource Slate8Color}" />
-    <SolidColorBrush x:Key="SeparatorBrush" Color="{StaticResource Slate7Color}" />
-    <SolidColorBrush x:Key="AccentBrush" Color="{StaticResource AccentColor}" />
-    <SolidColorBrush x:Key="ErrorBrush" Color="{StaticResource ErrorColor}" />
+    <SolidColorBrush x:Key="AccentBrush" Color="{StaticResource Grass9Color}" />
+    <SolidColorBrush x:Key="ErrorBrush" Color="{StaticResource Red9Color}" />
     <SolidColorBrush x:Key="CaptionCloseHoverBrush" Color="{StaticResource Red9Color}" />
     <SolidColorBrush x:Key="CaptionClosePressedBrush" Color="{StaticResource Red10Color}" />
+    <SolidColorBrush x:Key="WindowBorderBrush" Color="{StaticResource Slate8Color}" />
 
     <!--  Viewport  -->
-    <SolidColorBrush x:Key="ViewportMeasurementBrush" Opacity="0.5" Color="{StaticResource Slate12Color}" />
-    <SolidColorBrush x:Key="ViewportMeasurementErrorBrush" Opacity="0.5" Color="{StaticResource ErrorColor}" />
-    <SolidColorBrush x:Key="ViewportRangeStrokeBrush" Opacity="0.5" Color="{StaticResource ErrorColor}" />
-    <SolidColorBrush x:Key="ViewportRangeFillBrush" Opacity="0.1" Color="{StaticResource ErrorColor}" />
+    <SolidColorBrush x:Key="ViewportObservationBrush" Opacity="0.55" Color="{StaticResource Slate12Color}" />
+    <SolidColorBrush x:Key="ViewportObservationErrorBrush" Opacity="0.75" Color="{StaticResource Red9Color}" />
+    <SolidColorBrush x:Key="ViewportRangeStrokeBrush" Opacity="0.65" Color="{StaticResource Grass9Color}" />
+    <SolidColorBrush x:Key="ViewportRangeFillBrush" Opacity="0.10" Color="{StaticResource Grass9Color}" />
     <SolidColorBrush x:Key="ViewportGridLineBrush" Opacity="0.15" Color="{StaticResource Slate12Color}" />
     <SolidColorBrush x:Key="ViewportRulerBackgroundBrush" Opacity="0.1" Color="{StaticResource Slate9Color}" />
-    <SolidColorBrush x:Key="ViewportRulerLineBrush" Opacity="0.3" Color="{StaticResource Slate12Color}" />
+    <SolidColorBrush x:Key="ViewportRulerLineBrush" Opacity="0.5" Color="{StaticResource Slate12Color}" />
     <SolidColorBrush x:Key="ViewportRulerTextBrush" Color="{StaticResource Slate12Color}" />
 </ResourceDictionary>

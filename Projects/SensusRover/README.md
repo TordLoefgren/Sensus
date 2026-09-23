@@ -36,7 +36,7 @@ make those changes meaningful.
 | --- | --- | --- |
 | [**Mk. 1-A — Wired scanner**](Marks/Mk-1-A/README.md) | Physical measurement + USB serial | Receive, visualize, record, and replay real range observations. |
 | **Mk. 1-B — Wireless scanner** | Portable power + wireless link | Remove the USB tether without changing the basic measurement model. |
-| **Mk. 1-C — Rover** | Motion + bidirectional control | Put the scanner on a small mobile platform and control it from Sensus. |
+| **Mk. 1-C — Rover** | Motion + drive control | Put the scanner on a small mobile platform and control it from Sensus. |
 | **Mk. 2 — Wi-Fi rover** | IP networking | Replace the serial-like wireless link with a real network transport. |
 | **Mk. 3 — Integrated controller** | Embedded architecture | Move measurement, control, and networking onto one more capable controller. |
 
@@ -49,12 +49,15 @@ are understood.
 Work is currently focused on
 [**Mk. 1-A — Wired scanner**](Marks/Mk-1-A/README.md).
 
-The first vertical slice is intentionally small:
+The first vertical slice established the path:
 
 **HC-SR04 → Arduino Uno → USB serial → Sensus → visualization**
 
-Once that path is understood, Mk. 1-A can grow into servo-driven sweeps,
-recording, and replay.
+The desktop application now handles scanner handshakes, structured samples,
+in-memory sessions, and scan visualization. The firmware sends measured HC-SR04
+echo durations over USB serial, while reported bearings still advance in software.
+A desktop simulation provides several scan scenarios without hardware.
+Servo-driven sweeps are the next hardware step; recording and replay remain planned.
 
 ## Starting hardware
 

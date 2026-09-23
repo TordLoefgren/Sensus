@@ -1,4 +1,6 @@
-﻿namespace Sensus.Services
+﻿using Sensus.Models;
+
+namespace Sensus.Services
 {
     public interface IRangeSampleSerializerService
     {

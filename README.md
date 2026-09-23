@@ -16,8 +16,8 @@ A personal experiment in embedded systems, electronics, and integrating hardware
 
 ## Overview
 
-**Sensus** is a **C# WPF** workbench for visualizing, replaying, and experimenting
-with physical sensor data.
+**Sensus** is a **C# WPF** workbench for visualizing and experimenting with
+physical sensor data. Recording and replay are planned.
 
 The project develops the **hardware, embedded firmware, and desktop software**
 together through small, progressively more capable experiments.
@@ -30,23 +30,28 @@ introducing wireless communication, motion, networking, and spatial mapping.
 
 Sensus is in active development, with work focused on
 [**Mk. 1-A — Wired scanner**](Projects/SensusRover/Marks/Mk-1-A/README.md).
-The application currently supports live range samples from a real Arduino over
-a serial port and also generated synthetic samples from a simulation stream. Both inputs use
-the same async processing path and renders the latest measurement in the
-viewport.
+The application accepts structured range samples over USB serial or from a
+simulation stream. Both sources use the same handshake and async processing
+path. Each acquisition session retains its observations in memory and displays
+the scan points, the latest observation, and sample details in the inspector.
 
-The next milestone will expand this from a single range value to more detailed range
-samples and their visualization.
+Connecting performs a basic handshake and automatically starts acquisition.
+The status bar shows the source state, and connection failures appear in the
+scanner panel. Stopping preserves the session; starting a new run replaces it.
+
+The Arduino firmware reads real HC-SR04 echo durations and reports missing echoes.
+Bearings still advance in software; moving the sensor with the servo is the next
+hardware step. Use the desktop simulation to explore synthetic scan patterns.
 
 The full progression from scanner to rover is described in the
 [**Sensus Rover roadmap**](Projects/SensusRover/README.md#progression).
 
 <p align="center">
-  <img src="snapshot.png" alt="Current Sensus application workspace." width="900">
+  <img src="snapshot.png" alt="Sensus workspace showing a simulated scan, scanner controls, and the sample inspector." width="900">
 </p>
 
 <p align="center"><i>
-The Sensus workspace showing live and simulated range visualization.
+The Sensus workspace showing a simulated sweep, retained scan points, and the latest observation.
 </i></p>
 
 ## Quick Start
@@ -56,6 +61,10 @@ Requires Windows and the .NET 10 SDK. From the repository root:
 ```powershell
 dotnet run --project Sensus/Sensus.csproj
 ```
+
+To try the application without hardware, choose a simulation scenario in the
+scanner panel and press **Start**. With the current firmware uploaded, select
+the board's COM port and press **Connect** to use USB serial at 9600 baud.
 
 ## Documentation
 

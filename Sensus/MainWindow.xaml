@@ -2,15 +2,18 @@
     x:Class="Sensus.MainWindow"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:controls="clr-namespace:Sensus.Controls"
+    xmlns:converters="clr-namespace:Sensus.Converters"
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     xmlns:shell="clr-namespace:System.Windows.Shell;assembly=PresentationFramework"
     Title="Sensus"
     Width="1400"
     Height="850"
-    MinWidth="1000"
+    MinWidth="1200"
     MinHeight="650"
     Background="{StaticResource ShellBrush}"
+    FontSize="13"
     Foreground="{StaticResource TextBrush}"
     Icon="/Assets/SensusGlyph.ico"
     SnapsToDevicePixels="True"
@@ -26,233 +29,430 @@
             UseAeroCaptionButtons="False" />
     </shell:WindowChrome.WindowChrome>
 
+    <Window.Resources>
 
-    <Grid x:Name="WindowLayout" Background="{StaticResource ShellBrush}">
+        <converters:EnumToDisplayStringConverter x:Key="EnumToDisplayStringConverter" />
 
-        <Grid.RowDefinitions>
-            <!--  Window chrome  -->
-            <RowDefinition Height="36" />
+        <!--  Panel typography  -->
 
-            <!--  Workspace  -->
-            <RowDefinition Height="*" />
+        <Style x:Key="PanelTitleStyle" TargetType="TextBlock">
+            <Setter Property="FontSize" Value="18" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="Margin" Value="0,0,0,6" />
+        </Style>
 
-            <!--  Status bar  -->
-            <RowDefinition Height="30" />
-        </Grid.RowDefinitions>
+        <Style x:Key="PanelIdentityStyle" TargetType="TextBlock">
+            <Setter Property="Foreground" Value="{StaticResource TextBrushSecondary}" />
+            <Setter Property="Margin" Value="0,0,0,4" />
+        </Style>
 
+        <Style x:Key="SectionTitleStyle" TargetType="TextBlock">
+            <Setter Property="FontSize" Value="14" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="Margin" Value="0,12,0,6" />
+        </Style>
 
-        <!--  ==================== Window Chrome ====================  -->
+        <!--  Common action rows  -->
 
-        <Border
-            Grid.Row="0"
-            Background="{StaticResource AppSurfaceBrush}"
-            BorderBrush="{StaticResource BorderBrush}"
-            BorderThickness="0,0,0,1">
+        <Style x:Key="ActionButtonStyle" BasedOn="{StaticResource PanelButtonStyle}" TargetType="Button">
+            <Setter Property="Margin" Value="0,0,6,0" />
+        </Style>
 
-            <Grid>
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="*" />
-                    <ColumnDefinition Width="Auto" />
-                </Grid.ColumnDefinitions>
+    </Window.Resources>
 
+    <Border
+        x:Name="WindowBorder"
+        Background="{StaticResource ShellBrush}"
+        BorderBrush="{StaticResource WindowBorderBrush}"
+        BorderThickness="1">
 
-                <!--  Title  -->
+        <Grid x:Name="WindowLayout" Background="{StaticResource ShellBrush}">
 
-                <StackPanel
-                    Grid.Column="0"
-                    Margin="10,0,0,0"
-                    VerticalAlignment="Center"
-                    Orientation="Horizontal">
-
-                    <Control
-                        Width="17"
-                        Height="17"
-                        Margin="0,1,8,0"
-                        Style="{StaticResource SensusGlyphStyle}" />
-
-                    <TextBlock
-                        VerticalAlignment="Center"
-                        FontSize="15"
-                        FontWeight="SemiBold"
-                        Text="Sensus" />
-
-                </StackPanel>
-
-                <!--  Window controls  -->
-
-                <StackPanel Grid.Column="1" shell:WindowChrome.IsHitTestVisibleInChrome="True" Orientation="Horizontal">
-                    <Button Click="MinimizeButton_Click" Style="{StaticResource MinimizeButtonStyle}" />
-
-                    <Button Click="MaximizeRestoreButton_Click" Style="{StaticResource MaximizeRestoreButtonStyle}" />
-
-                    <Button Click="CloseButton_Click" Style="{StaticResource CloseButtonStyle}" />
-
-                </StackPanel>
-
-            </Grid>
-
-        </Border>
+            <Grid.RowDefinitions>
+                <RowDefinition Height="36" />
+                <RowDefinition Height="*" />
+                <RowDefinition Height="30" />
+            </Grid.RowDefinitions>
 
 
-        <!--  ==================== Workspace ====================  -->
-
-        <Grid Grid.Row="1" Background="{StaticResource WorkspaceBrush}">
-            <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="2*" />
-                <ColumnDefinition Width="*" />
-            </Grid.ColumnDefinitions>
-
-
-            <!--  Viewport  -->
+            <!--  ==================== Window chrome ====================  -->
 
             <Border
-                Grid.Column="0"
-                Margin="10"
-                Background="{StaticResource PanelBrush}"
-                BorderBrush="{StaticResource BorderBrush}"
-                BorderThickness="1"
-                CornerRadius="4">
+                Grid.Row="0"
+                Background="{StaticResource AppSurfaceBrush}"
+                BorderBrush="{StaticResource BorderStrongBrush}"
+                BorderThickness="0,0,0,1">
 
-                <Canvas
-                    x:Name="ViewportCanvas"
-                    Margin="10"
-                    HorizontalAlignment="Stretch"
-                    VerticalAlignment="Stretch"
-                    Background="{StaticResource AppSurfaceBrush}"
-                    ClipToBounds="True" />
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+
+                    <StackPanel
+                        Grid.Column="0"
+                        Margin="10,0,0,0"
+                        VerticalAlignment="Center"
+                        Orientation="Horizontal">
+
+                        <Control
+                            Width="17"
+                            Height="17"
+                            Margin="0,1,8,0"
+                            Style="{StaticResource SensusGlyphStyle}" />
+
+                        <TextBlock
+                            VerticalAlignment="Center"
+                            FontSize="15"
+                            FontWeight="SemiBold"
+                            Text="Sensus" />
+
+                    </StackPanel>
+
+                    <StackPanel Grid.Column="1" shell:WindowChrome.IsHitTestVisibleInChrome="True" Orientation="Horizontal">
+
+                        <Button Click="MinimizeButton_Click" Style="{StaticResource MinimizeButtonStyle}" />
+
+                        <Button Click="MaximizeRestoreButton_Click" Style="{StaticResource MaximizeRestoreButtonStyle}" />
+
+                        <Button Click="CloseButton_Click" Style="{StaticResource CloseButtonStyle}" />
+
+                    </StackPanel>
+
+                </Grid>
 
             </Border>
 
 
-            <!--  Side panel  -->
+            <!--  ==================== Workspace ====================  -->
+
+            <Grid Grid.Row="1" Background="{StaticResource WorkspaceBrush}">
+
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="300" />
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="300" />
+                </Grid.ColumnDefinitions>
+
+
+                <!--  ==================== Scanner ====================  -->
+
+                <Border
+                    Grid.Column="0"
+                    Margin="10,10,0,10"
+                    Background="{StaticResource PanelBrush}"
+                    BorderBrush="{StaticResource BorderBrush}"
+                    BorderThickness="1"
+                    CornerRadius="4">
+
+                    <ScrollViewer VerticalScrollBarVisibility="Auto">
+
+                        <StackPanel Margin="16">
+
+                            <!--  Scanner identity  -->
+
+                            <TextBlock Style="{StaticResource PanelTitleStyle}" Text="Scanner" />
+
+                            <TextBlock Style="{StaticResource PanelIdentityStyle}" Text="{Binding ScannerIdentityDisplay, Mode=OneWay}" />
+
+
+                            <!--  Serial  -->
+
+                            <TextBlock Style="{StaticResource SectionTitleStyle}" Text="Serial" />
+
+                            <Grid Margin="0,0,0,6">
+
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="110" />
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="Auto" />
+                                </Grid.ColumnDefinitions>
+
+                                <TextBlock VerticalAlignment="Center" Foreground="{StaticResource TextBrushSecondary}" Text="Port" />
+
+                                <ComboBox
+                                    x:Name="ValidPortsComboBox"
+                                    Grid.Column="1"
+                                    Margin="0,0,4,0"
+                                    ItemsSource="{Binding AvailablePortNames}"
+                                    SelectionChanged="ValidPortsComboBox_SelectionChanged"
+                                    Style="{StaticResource PanelComboBoxStyle}" />
+
+                                <Button
+                                    Grid.Column="2"
+                                    Width="26"
+                                    Click="RefreshSerialPortsButton_Click"
+                                    Content="↻"
+                                    Style="{StaticResource PropertyActionButtonStyle}" />
+
+                            </Grid>
+
+                            <controls:PropertyRow Label="Baud" Value="{Binding SerialBaudRateDisplay}" />
+
+                            <Grid Margin="0,0,0,6">
+
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="110" />
+                                    <ColumnDefinition Width="*" />
+                                </Grid.ColumnDefinitions>
+
+                                <TextBlock VerticalAlignment="Center" Foreground="{StaticResource TextBrushSecondary}" Text="Connection" />
+
+                                <Button
+                                    x:Name="SerialConnectionButton"
+                                    Grid.Column="1"
+                                    Click="SerialConnectionButton_Click"
+                                    Content="{Binding SerialConnectionButtonDisplay}"
+                                    IsEnabled="{Binding CanUseSerial}"
+                                    Style="{StaticResource PropertyActionButtonStyle}" />
+
+                            </Grid>
+
+
+                            <!--  Simulation  -->
+
+                            <TextBlock Style="{StaticResource SectionTitleStyle}" Text="Simulation" />
+
+                            <Grid Margin="0,0,0,6">
+
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="110" />
+                                    <ColumnDefinition Width="*" />
+                                </Grid.ColumnDefinitions>
+
+                                <TextBlock VerticalAlignment="Center" Foreground="{StaticResource TextBrushSecondary}" Text="Scenario" />
+
+                                <ComboBox
+                                    x:Name="SimulationScenarioComboBox"
+                                    Grid.Column="1"
+                                    ItemsSource="{Binding AvailableSimulationScenarios}"
+                                    SelectionChanged="SimulationScenarioComboBox_SelectionChanged"
+                                    Style="{StaticResource PanelComboBoxStyle}">
+
+                                    <ComboBox.ItemTemplate>
+                                        <DataTemplate>
+                                            <TextBlock Text="{Binding Converter={StaticResource EnumToDisplayStringConverter}}" />
+                                        </DataTemplate>
+                                    </ComboBox.ItemTemplate>
+                                </ComboBox>
+
+                            </Grid>
+
+                            <Grid Margin="0,0,0,6">
+
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="110" />
+                                    <ColumnDefinition Width="*" />
+                                </Grid.ColumnDefinitions>
+
+                                <TextBlock VerticalAlignment="Center" Foreground="{StaticResource TextBrushSecondary}" Text="Simulation" />
+
+                                <Button
+                                    x:Name="SimulationButton"
+                                    Grid.Column="1"
+                                    Click="SimulationButton_Click"
+                                    Content="{Binding SimulationButtonDisplay}"
+                                    IsEnabled="{Binding CanUseSimulation}"
+                                    Style="{StaticResource PropertyActionButtonStyle}" />
+
+                            </Grid>
+
+
+                            <!--  Error  -->
+
+                            <Border
+                                x:Name="ErrorMessageBorder"
+                                Margin="0,12,0,0"
+                                Padding="10,8"
+                                Background="{StaticResource AppSurfaceBrush}"
+                                BorderBrush="{StaticResource ErrorBrush}"
+                                BorderThickness="1"
+                                CornerRadius="3"
+                                Visibility="Collapsed">
+
+                                <TextBlock x:Name="ErrorMessageTextBlock" Foreground="{StaticResource ErrorBrush}" TextWrapping="Wrap" />
+
+                            </Border>
+
+
+                            <!--  Hardware  -->
+
+                            <TextBlock Style="{StaticResource SectionTitleStyle}" Text="Hardware" />
+
+                            <controls:PropertyRow Label="Board" Value="{Binding BoardNameDisplay}" />
+
+                            <controls:PropertyRow Label="MCU" Value="{Binding MicrocontrollerDisplay}" />
+
+                            <controls:PropertyRow Label="Sensor" Value="{Binding SensorNameDisplay}" />
+
+                            <controls:PropertyRow Label="Range" Value="{Binding SensorRangeDisplay}" />
+
+                            <controls:PropertyRow Label="Angle" Value="{Binding SensorMeasuringAngleDisplay}" />
+
+                            <controls:PropertyRow Label="Servo" Value="{Binding ServoNameDisplay}" />
+
+                            <controls:PropertyRow Label="Rotation range" Value="{Binding ServoRotationRangeDisplay}" />
+
+
+                            <!--  Configuration  -->
+
+                            <TextBlock Style="{StaticResource SectionTitleStyle}" Text="Configuration" />
+
+                            <controls:PropertyRow Label="Sweep" Value="{Binding SweepRangeDisplay}" />
+
+                            <controls:PropertyRow Label="Step" Value="{Binding BearingStepDisplay}" />
+
+                            <controls:PropertyRow Label="Acquisition delay" Value="{Binding AcquisitionDelayDisplay}" />
+
+                            <controls:PropertyRow Label="Echo timeout" Value="{Binding EchoTimeoutDisplay}" />
+
+
+                            <!--  Session  -->
+
+                            <Button
+                                Margin="0,6,0,0"
+                                Click="ClearSessionButton_Click"
+                                Content="Clear Session"
+                                IsEnabled="{Binding CanClearSession}"
+                                Style="{StaticResource ActionButtonStyle}" />
+
+                        </StackPanel>
+
+                    </ScrollViewer>
+
+                </Border>
+
+
+                <!--  ==================== Viewport ====================  -->
+
+                <Border
+                    Grid.Column="1"
+                    Margin="10"
+                    Background="{StaticResource PanelBrush}"
+                    BorderBrush="{StaticResource BorderBrush}"
+                    BorderThickness="1"
+                    CornerRadius="4">
+
+                    <Grid
+                        x:Name="ViewportHost"
+                        Margin="10"
+                        HorizontalAlignment="Stretch"
+                        VerticalAlignment="Stretch"
+                        Background="{StaticResource AppSurfaceBrush}"
+                        ClipToBounds="True">
+
+                        <Canvas x:Name="GridLayer" IsHitTestVisible="False" />
+
+                        <Canvas x:Name="ObjectLayer" />
+
+                        <Canvas x:Name="GizmoLayer" IsHitTestVisible="False" />
+                    </Grid>
+
+                </Border>
+
+
+                <!--  ==================== Inspector ====================  -->
+
+                <Border
+                    Grid.Column="2"
+                    Margin="0,10,10,10"
+                    Background="{StaticResource PanelBrush}"
+                    BorderBrush="{StaticResource BorderBrush}"
+                    BorderThickness="1"
+                    CornerRadius="4">
+
+                    <ScrollViewer VerticalScrollBarVisibility="Auto">
+
+                        <StackPanel Margin="16">
+
+                            <TextBlock Style="{StaticResource PanelTitleStyle}" Text="Inspector" />
+
+
+                            <!--  Sample  -->
+
+                            <TextBlock Style="{StaticResource SectionTitleStyle}" Text="Sample" />
+
+                            <controls:PropertyRow Label="Sequence" Value="{Binding SequenceDisplay}" />
+
+                            <controls:PropertyRow Label="Sweep ID" Value="{Binding SweepIdDisplay}" />
+
+                            <controls:PropertyRow Label="Elapsed" Value="{Binding ElapsedDisplay}" />
+
+                            <controls:PropertyRow Label="Bearing" Value="{Binding BearingDisplay}" />
+
+                            <controls:PropertyRow Label="Round trip" Value="{Binding RoundTripDisplay}" />
+
+                            <controls:PropertyRow Label="Status" Value="{Binding StatusDisplay}" />
+
+
+                            <!--  Observation  -->
+
+                            <TextBlock Style="{StaticResource SectionTitleStyle}" Text="Observation" />
+
+                            <controls:PropertyRow Label="Elapsed" Value="{Binding ElapsedSecondsDisplay}" />
+
+                            <controls:PropertyRow Label="Distance" Value="{Binding DistanceDisplay}" />
+
+                            <controls:PropertyRow Label="Position X" Value="{Binding PositionXDisplay}" />
+
+                            <controls:PropertyRow Label="Position Y" Value="{Binding PositionYDisplay}" />
+
+                            <controls:PropertyRow Label="Range state" Value="{Binding RangeStatusDisplay}" />
+
+                        </StackPanel>
+
+                    </ScrollViewer>
+
+                </Border>
+
+            </Grid>
+
+
+            <!--  ==================== Status bar ====================  -->
 
             <Border
-                Grid.Column="1"
-                Margin="0,10,10,10"
-                Background="{StaticResource PanelBrush}"
-                BorderBrush="{StaticResource BorderBrush}"
-                BorderThickness="1"
-                CornerRadius="4">
+                Grid.Row="2"
+                Background="{StaticResource AppSurfaceBrush}"
+                BorderBrush="{StaticResource BorderStrongBrush}"
+                BorderThickness="0,1,0,0">
 
-                <StackPanel>
-                    <TextBlock
-                        Margin="20,5"
-                        HorizontalAlignment="Center"
-                        FontSize="20"
-                        Text="Serial Port" />
+                <Grid Margin="16,0">
 
-                    <Button
-                        Margin="10,10,10,5"
-                        Background="{StaticResource PanelBrush}"
-                        Click="ConnectButton_Click"
-                        FontSize="15"
-                        Foreground="{StaticResource TextBrush}">
-                        Connect
-                    </Button>
-                    <Button
-                        Margin="10,5"
-                        Background="{StaticResource PanelBrush}"
-                        Click="DisconnectButton_Click"
-                        FontSize="15"
-                        Foreground="{StaticResource TextBrush}">
-                        Disconnect
-                    </Button>
-                    <Button
-                        Margin="10,5,10,5"
-                        Background="{StaticResource PanelBrush}"
-                        Click="RefreshButton_Click"
-                        FontSize="15"
-                        Foreground="{StaticResource TextBrush}">
-                        Refresh
-                    </Button>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
 
 
-                    <TextBlock
-                        Margin="10,10,10,5"
-                        HorizontalAlignment="Center"
-                        FontSize="15"
-                        Text="Available serial ports" />
+                    <!--  Application / source state  -->
 
-                    <ComboBox
-                        x:Name="ValidPortsComboBox"
-                        Margin="10,5"
-                        FontSize="15"
-                        ItemsSource="{Binding AvailablePortNames}"
-                        SelectionChanged="ValidPortsComboBox_SelectionChanged" />
+                    <StackPanel Grid.Column="0" VerticalAlignment="Center" Orientation="Horizontal">
 
-                    <TextBlock
-                        x:Name="SerialPortConnectionStatusTextBlock"
-                        Margin="20,5"
-                        HorizontalAlignment="Center"
-                        FontSize="15"
-                        Text="Connection status: Disconnected" />
+                        <TextBlock VerticalAlignment="Center" Text="{Binding SourceStatusDisplay, Mode=OneWay}" />
 
-                    <TextBlock
-                        x:Name="ErrorMessageTextBlock"
-                        Margin="20,5"
-                        HorizontalAlignment="Center"
-                        FontSize="15"
-                        Visibility="Collapsed" />
+                    </StackPanel>
 
-                    <Separator />
 
-                    <TextBlock
-                        Margin="20,5"
-                        HorizontalAlignment="Center"
-                        FontSize="20"
-                        Text="Scanner Simulation" />
+                    <!--  Viewport state  -->
 
-                    <Button
-                        Margin="10,10,10,5"
-                        Background="{StaticResource PanelBrush}"
-                        Click="StartSimulationButton_Click"
-                        FontSize="15"
-                        Foreground="{StaticResource TextBrush}">
-                        Start Simulation
-                    </Button>
-                    <Button
-                        Margin="10,5,10,10"
-                        Background="{StaticResource PanelBrush}"
-                        Click="StopSimulationButton_Click"
-                        FontSize="15"
-                        Foreground="{StaticResource TextBrush}">
-                        StopSimulation
-                    </Button>
+                    <StackPanel Grid.Column="1" VerticalAlignment="Center" Orientation="Horizontal">
 
-                    <Separator />
+                        <TextBlock
+                            Margin="0,0,8,0"
+                            VerticalAlignment="Center"
+                            Foreground="{StaticResource TextBrushSecondary}"
+                            Text="Mouse" />
 
-                    <TextBlock Margin="20,5" HorizontalAlignment="Center" FontSize="20" />
+                        <TextBlock VerticalAlignment="Center" Text="{Binding MousePositionDisplay, Mode=OneWay}" />
 
-                    <TextBlock
-                        x:Name="RoundTripDurationUsTextBlock"
-                        Margin="20,5"
-                        HorizontalAlignment="Center"
-                        FontSize="15"
-                        Text="Round trip duration: -" />
+                    </StackPanel>
 
-                    <TextBlock
-                        x:Name="DistanceCmTextBlock"
-                        Margin="20,5"
-                        HorizontalAlignment="Center"
-                        FontSize="15"
-                        Text="Distance: -" />
-
-                </StackPanel>
+                </Grid>
 
             </Border>
 
         </Grid>
 
+    </Border>
 
-        <!--  ==================== Status bar ====================  -->
-
-        <Border
-            Grid.Row="2"
-            Background="{StaticResource AppSurfaceBrush}"
-            BorderBrush="{StaticResource BorderBrush}"
-            BorderThickness="0,1,0,0">
-
-            <StackPanel />
-        </Border>
-    </Grid>
 </Window>

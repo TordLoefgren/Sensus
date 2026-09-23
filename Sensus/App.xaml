@@ -10,6 +10,8 @@
                 <ResourceDictionary Source="/Resources/Colors.xaml" />
                 <ResourceDictionary Source="/Resources/Icons.xaml" />
                 <ResourceDictionary Source="/Resources/WindowChrome.xaml" />
+                <ResourceDictionary Source="/Styles/Buttons.xaml" />
+                <ResourceDictionary Source="/Styles/ComboBoxes.xaml" />
             </ResourceDictionary.MergedDictionaries>
         </ResourceDictionary>
     </Application.Resources>
