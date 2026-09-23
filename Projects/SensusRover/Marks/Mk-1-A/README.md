@@ -74,7 +74,6 @@ Mk. 1-A will explore:
 - message framing
 - timestamps and sequence numbers
 - servo bearing and sweeps
-- recording and replay
 
-Wireless communication, rover motion, localization, and mapping are deliberately
-left for later stages.
+Recording and replay, wireless communication, rover motion, localization, and
+mapping are deliberately left for later stages.
