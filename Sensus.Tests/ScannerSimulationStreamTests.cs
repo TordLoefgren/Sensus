@@ -1,7 +1,8 @@
 ﻿using System.Text;
-using Sensus.Enums;
 using Sensus.Models;
+using Sensus.Models.Enums;
 using Sensus.Services;
+using Sensus.Simulation;
 
 namespace Sensus.Tests
 {

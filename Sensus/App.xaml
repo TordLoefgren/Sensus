@@ -1,18 +1,51 @@
-<Application
+﻿<Application
     x:Class="Sensus.App"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-    StartupUri="MainWindow.xaml">
+    xmlns:converters="clr-namespace:Sensus.Views.Converters"
+    xmlns:viewmodels="clr-namespace:Sensus.ViewModels"
+    xmlns:views="clr-namespace:Sensus.Views"
+    Exit="Application_Exit"
+    Startup="Application_StartUp">
 
     <Application.Resources>
         <ResourceDictionary>
             <ResourceDictionary.MergedDictionaries>
                 <ResourceDictionary Source="/Resources/Colors.xaml" />
                 <ResourceDictionary Source="/Resources/Icons.xaml" />
-                <ResourceDictionary Source="/Resources/WindowChrome.xaml" />
-                <ResourceDictionary Source="/Styles/Buttons.xaml" />
-                <ResourceDictionary Source="/Styles/ComboBoxes.xaml" />
+                <ResourceDictionary Source="/Resources/Styles/WindowChrome.xaml" />
+                <ResourceDictionary Source="/Resources/Styles/Buttons.xaml" />
+                <ResourceDictionary Source="/Resources/Styles/ComboBoxes.xaml" />
+                <ResourceDictionary Source="/Resources/Styles/Panels.xaml" />
             </ResourceDictionary.MergedDictionaries>
+
+            <BooleanToVisibilityConverter x:Key="BooleanToVisibilityConverter" />
+            <converters:EnumToDisplayStringConverter x:Key="EnumToDisplayStringConverter" />
+
+            <DataTemplate DataType="{x:Type viewmodels:InspectorViewModel}">
+                <views:InspectorView />
+            </DataTemplate>
+
+            <DataTemplate DataType="{x:Type viewmodels:ScannerViewModel}">
+                <views:ScannerView />
+            </DataTemplate>
+
+            <DataTemplate DataType="{x:Type viewmodels:StatusBarViewModel}">
+                <views:StatusBarView />
+            </DataTemplate>
+
+            <DataTemplate DataType="{x:Type viewmodels:ViewportViewModel}">
+                <views:ViewportView
+                    MousePositionCm="{Binding MousePositionCm, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                    ScannerConfiguration="{Binding State.Session.Configuration}"
+                    ScannerDefinition="{Binding State.Session.Definition}"
+                    Session="{Binding State.Session}" />
+            </DataTemplate>
+
+            <DataTemplate DataType="{x:Type viewmodels:WorkspaceViewModel}">
+                <views:WorkspaceView />
+            </DataTemplate>
+
         </ResourceDictionary>
     </Application.Resources>
 </Application>

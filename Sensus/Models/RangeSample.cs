@@ -1,4 +1,4 @@
-﻿using Sensus.Enums;
+﻿using Sensus.Models.Enums;
 
 namespace Sensus.Models
 {

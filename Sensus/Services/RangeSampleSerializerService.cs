@@ -1,6 +1,6 @@
 ﻿using System.Globalization;
-using Sensus.Enums;
 using Sensus.Models;
+using Sensus.Models.Enums;
 
 namespace Sensus.Services
 {

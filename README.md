@@ -79,5 +79,6 @@ reflections in its README.
 ## Layout
 
 - `Sensus/` — C# WPF application
+- `Sensus.Tests/` — automated tests for the Sensus application
 - `Projects/` — hardware, firmware, and experiments built around Sensus
 - `Docs/` — shared concepts, hardware references, and README assets
