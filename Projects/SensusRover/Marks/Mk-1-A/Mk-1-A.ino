@@ -1,3 +1,5 @@
+#include <Servo.h>
+
 enum SampleStatus : int {
   Valid = 0,
   NoEcho = 1,
@@ -5,6 +7,9 @@ enum SampleStatus : int {
 
 const int TRIG_PIN = 9;
 const int ECHO_PIN = 10;
+const int SERVO_PIN = 11;
+
+Servo servo;
 
 bool hasHandshake = false;
 bool isRunning = false;
@@ -73,6 +78,11 @@ void setup() {
 
   pinMode(TRIG_PIN, OUTPUT);
   pinMode(ECHO_PIN, INPUT);
+
+  servo.attach(SERVO_PIN);
+
+  servo.write(static_cast<int>(bearingDegrees + 90));
+  delay(500);
 }
 
 void processIncomingCommand() {
@@ -104,6 +114,12 @@ void loop() {
     return;
   }
 
+  // Move to the bearing that the current sample will represent.
+  servo.write(static_cast<int>(bearingDegrees + 90));
+
+  // Give the servo time to reach the new position.
+  delay(20);
+
   // Start with a clean signal.
   digitalWrite(TRIG_PIN, LOW);
   delayMicroseconds(2);
@@ -130,9 +146,9 @@ void loop() {
     status
   );
 
-  // Advance the reported bearing in software; servo movement is not implemented yet.
+  // Advance the target bearing for the next measurement.
   sequence++;
-  bearingDegrees += (sweepingClockwise ? 5 : -5);
+  bearingDegrees += sweepingClockwise ? 1.0 : -1.0;
 
   if (updateSweepDirection()) {
     sweepId++;
