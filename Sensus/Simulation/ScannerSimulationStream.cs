@@ -7,6 +7,7 @@ namespace Sensus.Simulation
 {
     public class ScannerSimulationStream : Stream
     {
+
         #region Fields and properties
 
         private readonly Func<CancellationToken, IAsyncEnumerable<RangeSample>> _simulationSource;
@@ -46,7 +47,7 @@ namespace Sensus.Simulation
 
         public override void Flush()
         {
-            // Commands are processed immediately; there is no write buffer to flush.
+            // Commands are processed immediately. There is no write buffer to flush.
         }
 
         public override int Read(byte[] buffer, int offset, int count)

@@ -34,8 +34,8 @@
                 <views:StatusBarView />
             </DataTemplate>
 
-            <DataTemplate DataType="{x:Type viewmodels:ViewportViewModel}">
-                <views:ViewportView
+            <DataTemplate DataType="{x:Type viewmodels:ScanViewModel}">
+                <views:ScanView
                     MousePositionCm="{Binding MousePositionCm, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
                     ScannerConfiguration="{Binding State.Session.Configuration}"
                     ScannerDefinition="{Binding State.Session.Definition}"

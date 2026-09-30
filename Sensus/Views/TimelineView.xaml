@@ -1,0 +1,109 @@
+<UserControl
+    x:Class="Sensus.Views.TimelineView"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:lvc="clr-namespace:LiveChartsCore.SkiaSharpView.WPF;assembly=LiveChartsCore.SkiaSharpView.WPF"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    x:Name="Timeline"
+    d:DesignHeight="310"
+    d:DesignWidth="780"
+    mc:Ignorable="d">
+
+    <UserControl.Resources>
+
+        <Style x:Key="TimelineTrackHeadingStyle" TargetType="TextBlock">
+            <Setter Property="Foreground" Value="{StaticResource TextBrushSecondary}" />
+            <Setter Property="FontSize" Value="11" />
+        </Style>
+
+        <Style x:Key="TimelineSeparatorStyle" TargetType="Border">
+            <Setter Property="Background" Value="{StaticResource BorderSubtleBrush}" />
+            <Setter Property="Height" Value="1" />
+            <Setter Property="Margin" Value="0,3" />
+            <Setter Property="Opacity" Value="0.6" />
+        </Style>
+
+        <Style x:Key="TimelineChartStyle" TargetType="lvc:CartesianChart">
+            <Setter Property="Background" Value="{StaticResource TimelineBackgroundBrush}" />
+            <Setter Property="AnimationsSpeed" Value="0:0:0" />
+            <Setter Property="TooltipPosition" Value="Hidden" />
+            <Setter Property="DrawMargin" Value="64,Auto,18,Auto" />
+        </Style>
+
+    </UserControl.Resources>
+
+    <Grid
+        x:Name="TimelineSurface"
+        Margin="10"
+        Background="Transparent"
+        ClipToBounds="True"
+        MouseLeave="OnTimelineMouseLeave"
+        PreviewMouseMove="OnTimelineMouseMove">
+
+        <Grid Background="{StaticResource PanelBrush}">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="*" />
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="*" />
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="*" />
+            </Grid.RowDefinitions>
+
+            <DockPanel>
+                <TextBlock DockPanel.Dock="Top" Style="{StaticResource TimelineTrackHeadingStyle}" Text="Distance" />
+                <lvc:CartesianChart
+                    x:Name="DistanceChart"
+                    Series="{Binding DistanceSeries, ElementName=Timeline}"
+                    Style="{StaticResource TimelineChartStyle}"
+                    XAxes="{Binding DistanceTimeAxes, ElementName=Timeline}"
+                    YAxes="{Binding DistanceAxes, ElementName=Timeline}" />
+            </DockPanel>
+
+            <Border Grid.Row="1" Style="{StaticResource TimelineSeparatorStyle}" />
+
+            <DockPanel Grid.Row="2">
+                <TextBlock DockPanel.Dock="Top" Style="{StaticResource TimelineTrackHeadingStyle}" Text="Bearing" />
+                <lvc:CartesianChart
+                    x:Name="BearingChart"
+                    Series="{Binding BearingSeries, ElementName=Timeline}"
+                    Style="{StaticResource TimelineChartStyle}"
+                    XAxes="{Binding BearingTimeAxes, ElementName=Timeline}"
+                    YAxes="{Binding BearingAxes, ElementName=Timeline}" />
+            </DockPanel>
+
+            <Border Grid.Row="3" Style="{StaticResource TimelineSeparatorStyle}" />
+
+            <DockPanel Grid.Row="4">
+                <TextBlock DockPanel.Dock="Top" Style="{StaticResource TimelineTrackHeadingStyle}" Text="Status" />
+                <lvc:CartesianChart
+                    x:Name="StatusChart"
+                    Series="{Binding StatusSeries, ElementName=Timeline}"
+                    Style="{StaticResource TimelineChartStyle}"
+                    XAxes="{Binding StatusTimeAxes, ElementName=Timeline}"
+                    YAxes="{Binding StatusAxes, ElementName=Timeline}" />
+            </DockPanel>
+        </Grid>
+
+        <Canvas x:Name="TimelineOverlay" IsHitTestVisible="False">
+            <Line
+                x:Name="TimelineCursor"
+                Stroke="{StaticResource TimelineCursorBrush}"
+                StrokeThickness="1"
+                Visibility="Collapsed" />
+
+            <Border
+                x:Name="TimelineCursorTooltip"
+                Padding="6,3"
+                Background="{StaticResource PanelBrush}"
+                BorderBrush="{StaticResource BorderSubtleBrush}"
+                BorderThickness="1"
+                CornerRadius="3"
+                Visibility="Collapsed">
+
+                <TextBlock x:Name="TimelineCursorTime" FontSize="11" Foreground="{StaticResource TextBrush}" />
+
+            </Border>
+        </Canvas>
+    </Grid>
+</UserControl>

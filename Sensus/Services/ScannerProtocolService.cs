@@ -46,14 +46,14 @@ namespace Sensus.Services
 
                 if (response == ProtocolHandshakeResponse)
                 {
-                    // This is a harcoded placeholder for the future handshake response.
+                    // Match Mk. 1-A firmware until the handshake includes device metadata.
                     return new(
                         new(
                             "Sensus Rover", "Mk. 1-A",
                             new("ELEGOO UNO R3", "ATmega328"),
                             new("HC-SR04", 2.0, 400.0, 15.0),
                             new("SG90", 180.0)),
-                        ScannerConfiguration.Default
+                        new(-90.0, 90.0, 1.0, 100, 30_000)
                     );
                 }
 

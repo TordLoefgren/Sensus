@@ -1,6 +1,6 @@
-namespace Sensus.Models
+﻿namespace Sensus.Models
 {
-    public readonly record struct GridLayout(
+    public readonly record struct CartesianGridLayout(
         double FirstX,
         double FirstY,
         int VerticalCount,

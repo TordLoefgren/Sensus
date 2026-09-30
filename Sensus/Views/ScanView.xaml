@@ -1,5 +1,5 @@
-﻿<UserControl
-    x:Class="Sensus.Views.ViewportView"
+<UserControl
+    x:Class="Sensus.Views.ScanView"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
@@ -10,18 +10,24 @@
     mc:Ignorable="d">
 
     <Grid
-        x:Name="ViewportHost"
+        x:Name="ScanHost"
         Margin="10"
         HorizontalAlignment="Stretch"
         VerticalAlignment="Stretch"
         Background="{StaticResource AppSurfaceBrush}"
         ClipToBounds="True">
 
-        <Canvas x:Name="GridLayer" IsHitTestVisible="False" />
+        <!--  Plot layers share a clip that excludes the rulers.  -->
+        <Grid x:Name="PlotLayers" IsHitTestVisible="False">
+            <Canvas x:Name="CoverageLayer" />
+            <Canvas x:Name="CartesianGridLayer" />
+            <Canvas x:Name="PolarGridLayer" />
+            <Canvas x:Name="ObservationLayer" />
+            <Canvas x:Name="IndicatorLayer" />
+            <Canvas x:Name="AnnotationLayer" />
+        </Grid>
 
-        <Canvas x:Name="ObjectLayer" />
-
-        <Canvas x:Name="GizmoLayer" IsHitTestVisible="False" />
+        <Canvas x:Name="RulerLayer" IsHitTestVisible="False" />
     </Grid>
 
 </UserControl>

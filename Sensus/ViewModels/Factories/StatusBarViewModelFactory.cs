@@ -5,9 +5,9 @@ namespace Sensus.ViewModels.Factories
 {
     public class StatusBarViewModelFactory : IStatusBarViewModelFactory
     {
-        public StatusBarViewModel Create(AcquisitionState state, ViewportViewModel viewport, ISerialConnectionService serialConnectionService)
+        public StatusBarViewModel Create(AcquisitionState state, ScanViewModel scan, ISerialConnectionService serialConnectionService)
         {
-            return new(state, viewport, serialConnectionService);
+            return new(state, scan, serialConnectionService);
         }
     }
 }

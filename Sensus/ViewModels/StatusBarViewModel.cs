@@ -8,7 +8,7 @@ namespace Sensus.ViewModels
 {
     public class StatusBarViewModel : ObservableObject, IDisposable
     {
-        private readonly ViewportViewModel _viewport;
+        private readonly ScanViewModel _scan;
         private readonly ISerialConnectionService _serialConnectionService;
 
         public AcquisitionState State { get; }
@@ -33,18 +33,18 @@ namespace Sensus.ViewModels
 
         public StatusBarViewModel(
             AcquisitionState state,
-            ViewportViewModel viewport,
+            ScanViewModel scan,
             ISerialConnectionService serialConnectionService
         )
         {
             State = state;
 
-            _viewport = viewport;
+            _scan = scan;
             _serialConnectionService = serialConnectionService;
 
             UpdateMousePosition();
 
-            PropertyChangedEventManager.AddHandler(_viewport, OnMousePositionChanged, nameof(ViewportViewModel.MousePositionCm));
+            PropertyChangedEventManager.AddHandler(_scan, OnMousePositionChanged, nameof(ScanViewModel.MousePositionCm));
             PropertyChangedEventManager.AddHandler(State, OnSourceStatusChanged, nameof(AcquisitionState.SourceState));
             PropertyChangedEventManager.AddHandler(State, OnSourceStatusChanged, nameof(AcquisitionState.SourceType));
         }
@@ -53,7 +53,7 @@ namespace Sensus.ViewModels
         {
             PropertyChangedEventManager.RemoveHandler(State, OnSourceStatusChanged, nameof(AcquisitionState.SourceState));
             PropertyChangedEventManager.RemoveHandler(State, OnSourceStatusChanged, nameof(AcquisitionState.SourceType));
-            PropertyChangedEventManager.RemoveHandler(_viewport, OnMousePositionChanged, nameof(ViewportViewModel.MousePositionCm));
+            PropertyChangedEventManager.RemoveHandler(_scan, OnMousePositionChanged, nameof(ScanViewModel.MousePositionCm));
         }
 
         private void OnSourceStatusChanged(object? sender, PropertyChangedEventArgs e)
@@ -68,7 +68,7 @@ namespace Sensus.ViewModels
 
         private void UpdateMousePosition()
         {
-            if (_viewport.MousePositionCm is not { } point)
+            if (_scan.MousePositionCm is not { } point)
             {
                 MousePositionDisplay = "Undefined";
 

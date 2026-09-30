@@ -67,7 +67,7 @@ namespace Sensus.Services
             CancellationToken cancellationToken
         )
         {
-            // Let StartInputProcessing retain the task before completion can clean it up.
+            // Let the caller save the task before we continue processing.
             await Task.Yield();
 
             try

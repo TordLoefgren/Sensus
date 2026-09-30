@@ -46,7 +46,7 @@ namespace Sensus
             // Viewmodel factories.
             services.AddSingleton<IWorkspaceViewModelFactory, WorkspaceViewModelFactory>();
             services.AddSingleton<IScannerViewModelFactory, ScannerViewModelFactory>();
-            services.AddSingleton<IViewportViewModelFactory, ViewportViewModelFactory>();
+            services.AddSingleton<IScanViewModelFactory, ScanViewModelFactory>();
             services.AddSingleton<IInspectorViewModelFactory, InspectorViewModelFactory>();
             services.AddSingleton<IStatusBarViewModelFactory, StatusBarViewModelFactory>();
 

@@ -6,6 +6,7 @@ namespace Sensus.ViewModels
 {
     public class InspectorViewModel : ObservableObject, IDisposable
     {
+
         #region State
 
         public AcquisitionState State { get; }
@@ -200,5 +201,6 @@ namespace Sensus.ViewModels
         }
 
         #endregion
+
     }
 }

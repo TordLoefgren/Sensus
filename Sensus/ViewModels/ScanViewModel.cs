@@ -3,7 +3,7 @@ using Sensus.Models;
 
 namespace Sensus.ViewModels
 {
-    public class ViewportViewModel : ObservableObject
+    public class ScanViewModel : ObservableObject
     {
         public AcquisitionState State { get; }
 
@@ -14,7 +14,7 @@ namespace Sensus.ViewModels
             set => SetField(ref _mousePositionCm, value);
         }
 
-        public ViewportViewModel(AcquisitionState state)
+        public ScanViewModel(AcquisitionState state)
         {
             State = state;
         }

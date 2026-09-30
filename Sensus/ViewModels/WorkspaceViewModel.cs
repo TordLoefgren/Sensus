@@ -11,7 +11,7 @@ namespace Sensus.ViewModels
 
         public AcquisitionState State { get; }
         public ScannerViewModel Scanner { get; }
-        public ViewportViewModel Viewport { get; }
+        public ScanViewModel Scan { get; }
         public InspectorViewModel Inspector { get; }
         public StatusBarViewModel StatusBar { get; }
 
@@ -20,7 +20,7 @@ namespace Sensus.ViewModels
             IAcquisitionService acquisitionService,
             ISerialConnectionService serialConnectionService,
             IScannerViewModelFactory scannerViewModelFactory,
-            IViewportViewModelFactory viewportViewModelFactory,
+            IScanViewModelFactory scanViewModelFactory,
             IInspectorViewModelFactory inspectorViewModelFactory,
             IStatusBarViewModelFactory statusBarViewModelFactory
         )
@@ -30,9 +30,9 @@ namespace Sensus.ViewModels
             _serialConnectionService = serialConnectionService;
 
             Scanner = scannerViewModelFactory.Create(State, serialConnectionService, acquisitionService);
-            Viewport = viewportViewModelFactory.Create(State);
+            Scan = scanViewModelFactory.Create(State);
             Inspector = inspectorViewModelFactory.Create(State);
-            StatusBar = statusBarViewModelFactory.Create(State, Viewport, serialConnectionService);
+            StatusBar = statusBarViewModelFactory.Create(State, Scan, serialConnectionService);
         }
 
         public async Task ShutdownAsync()

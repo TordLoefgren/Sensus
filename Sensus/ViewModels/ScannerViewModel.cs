@@ -9,6 +9,7 @@ namespace Sensus.ViewModels
 {
     public class ScannerViewModel : ObservableObject, IDisposable
     {
+
         #region State
 
         private readonly IAcquisitionService _acquisitionService;
@@ -307,5 +308,6 @@ namespace Sensus.ViewModels
         }
 
         #endregion
+
     }
 }

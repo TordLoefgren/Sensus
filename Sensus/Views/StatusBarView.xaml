@@ -34,7 +34,7 @@
             </StackPanel>
 
 
-            <!--  Viewport state  -->
+            <!--  Scan state  -->
 
             <StackPanel Grid.Column="1" VerticalAlignment="Center" Orientation="Horizontal">
 
