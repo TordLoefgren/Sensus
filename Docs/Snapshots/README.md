@@ -2,10 +2,15 @@
 
 This directory keeps selected milestone images from the Sensus workspace.
 
-The `snapshot.png` file in the repository root is the selected README preview;
-it may lag behind current development. Images here are dated archives of
+The `snapshot.png` file in the repository root is the selected README preview.
+It may lag behind current development. Images here are dated archives of
 meaningful milestones, so the visual progress of the project remains easy to
 browse without archiving every small iteration.
+
+## Current preview
+
+[2026-09-30 - Scan and timeline](../../snapshot.png) shows scanner coverage,
+collected observations, and distance, bearing, and status charts.
 
 ## Archive
 
@@ -15,4 +20,4 @@ browse without archiving every small iteration.
   serial and simulated range inputs rendered through the shared visualization
   path.
 - [2026-09-23 — Scan visualization](2026-09-23-scan-visualization.png) — the
-  scanner panel, retained scan points, and sample and observation inspector.
+  scanner panel, collected scan points, and sample and observation inspector.

@@ -32,26 +32,25 @@ Sensus is in active development, with work focused on
 [**Mk. 1-A — Wired scanner**](Projects/SensusRover/Marks/Mk-1-A/README.md).
 The application accepts structured range samples over USB serial or from a
 simulation stream. Both sources use the same handshake and async processing
-path. Each acquisition session retains its observations in memory and displays
+path. Each acquisition session keeps its observations in memory and displays
 the scan points, the latest observation, and sample details in the inspector.
 
 Connecting performs a basic handshake and automatically starts acquisition.
 The status bar shows the source state, and connection failures appear in the
-scanner panel. Stopping preserves the session; starting a new run replaces it.
+scanner panel. Stopping preserves the session. Starting a new run replaces it.
 
 The Arduino firmware reads real HC-SR04 echo durations and reports missing echoes.
-Bearings still advance in software; moving the sensor with the servo is the next
-hardware step. Use the desktop simulation to explore synthetic scan patterns.
+The servo turns the sensor through a sweep. Samples report the requested bearing. Use the desktop simulation to explore synthetic scan patterns.
 
 The full progression from scanner to rover is described in the
 [**Sensus Rover roadmap**](Projects/SensusRover/README.md#progression).
 
 <p align="center">
-  <img src="snapshot.png" alt="Sensus workspace showing a simulated scan, scanner controls, and the sample inspector." width="900">
+  <img src="snapshot.png" alt="Sensus workspace showing a simulated scan, measurement timeline, scanner controls, and inspector." width="900">
 </p>
 
 <p align="center"><i>
-The Sensus workspace showing a simulated sweep, retained scan points, and the latest observation.
+The Sensus workspace showing scan coverage, collected observations, and a timeline of distance, bearing, and sample status.
 </i></p>
 
 ## Quick Start

@@ -14,15 +14,14 @@ is needed.
 
 ### Hardware
 
-The planned Mk. 1-A scanner uses:
+The Mk. 1-A scanner uses:
 
 * [HC-SR04 ultrasonic ranging sensor](<Datasheets/HC-SR04 Ultrasonic Sensor Module.pdf>)
 * [SG90 servo motor](<Datasheets/SG90 Servo Motor.pdf>)
 * [Arduino Uno R3](<Datasheets/ELEGOO UNO R3 Board.pdf>)
 
-The current firmware measures echo pulses from a fixed sensor. Reported bearings
-still advance in software without servo movement. Mounting and driving the sensor
-on the servo is the next hardware step.
+The firmware tells the servo where to point, then measures how long the sensor
+echo takes to return.
 
 ### Scanner
 
@@ -64,7 +63,7 @@ Future rover motion, localization, camera data, battery telemetry, and similar
 information should not automatically be added to `RangeSample`. These describe
 other parts of the larger device and may instead be represented as separate,
 time-correlated data sources. A future rover simulation can compose those
-sources while retaining the scanner as a distinct subsystem.
+sources while keeping the scanner as a distinct subsystem.
 
 ```text
 Rover
@@ -84,9 +83,9 @@ relative to the scanner's forward direction.
 * `0°` = forward
 * `+90°` = right
 
-The current firmware reports a generated bearing. Once servo control is added,
-the bearing will represent the commanded servo angle rather than a directly
-measured physical angle.
+The reported bearing is the angle the firmware asked the servo to move to.
+The SG90 does not provide position feedback to the Arduino, so the firmware
+cannot read its actual angle.
 
 Samples and the serial protocol store the bearing in degrees as `BearingDegrees`.
 `RangeObservation` derives `BearingRadians` for trigonometric calculations.
@@ -134,7 +133,7 @@ the data.
 For Mk. 1-A, a new session is created automatically after the handshake succeeds,
 just before the application sends `START`.
 Stopping or disconnecting the source ends acquisition but does not destroy the
-session; its observations remain available in memory for inspection and
+session. Its observations remain available in memory for inspection and
 visualization. Starting a new acquisition creates a new session, replacing the
 previous one, while clearing the current session is an explicit operation.
 
@@ -171,7 +170,7 @@ Scanner -> Sensus:  sample lines
 
 Opening a connection gives Sensus access to the transport. Receiving
 `HELLO BACK` confirms that the scanner recognizes the protocol. Sensus currently
-sends `START` automatically after this reply; manual priming and starting are
+sends `START` automatically after this reply. Manual priming and starting are
 not implemented yet. A handshake timeout ends the connection attempt.
 
 In the firmware, `HELLO` resets scanner fields and disables sample output until
@@ -206,7 +205,7 @@ LiDAR, radar, and Time-of-Flight sensors.
 
 A range observation is Sensus' interpreted representation of a `RangeSample`.
 
-It retains the original sample and adds values that can be derived from it,
+It keeps the original sample and adds values that can be derived from it,
 such as range, bearing in radians, Cartesian position, and the interpreted
 range state.
 
@@ -302,10 +301,6 @@ Initial statuses are:
 
 Additional statuses may be introduced later if needed.
 
-The viewport uses `ViewportObservationErrorBrush` for samples whose status is
-not `Valid`, including `NoEcho`, and for observations outside the sensor's range.
-This applies to both retained scan points and the latest-observation indicator.
-
 ### Round-trip duration
 
 The round-trip duration is the measured time between emitting the ultrasonic
@@ -359,7 +354,7 @@ instead produce a frame containing many range measurements.
 ## Future terminology — occupancy grids
 
 Occupancy grids are planned for a later stage, after Mk. 1-A. These definitions
-describe the intended conventions for that work; no grid model is implemented
+describe the intended conventions for that work. No grid model is implemented
 in the current application.
 
 ### Grid size
@@ -393,4 +388,4 @@ grid coordinates. The future model will need this scale because column and
 row counts alone do not say how much physical space the occupancy map represents.
 
 Rendered pixels per cell are separate from metres per cell. Pixel size depends
-on the viewport, zoom, and available screen area.
+on the viewing transform, zoom, and available screen area.

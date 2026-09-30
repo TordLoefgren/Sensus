@@ -54,10 +54,11 @@ The first vertical slice established the path:
 **HC-SR04 → Arduino Uno → USB serial → Sensus → visualization**
 
 The desktop application now handles scanner handshakes, structured samples,
-in-memory sessions, and scan visualization. The firmware sends measured HC-SR04
-echo durations over USB serial, while reported bearings still advance in software.
+in-memory sessions, scan visualization, and a timeline of measurement metrics.
+The firmware drives the servo and sends HC-SR04 echo durations over USB serial.
 A desktop simulation provides several scan scenarios without hardware.
-Servo-driven sweeps are the next hardware step.
+Mounting the sensor on the servo and documenting the complete working scanner
+are the next steps.
 
 ## Starting hardware
 
