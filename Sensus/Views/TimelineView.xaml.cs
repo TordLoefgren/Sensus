@@ -21,6 +21,7 @@ namespace Sensus.Views
         #region Chart Data and State
 
         private const double WindowSeconds = 15;
+        private const double MinimumDistancePaddingCm = 5;
 
         private readonly ObservableCollection<ObservablePoint> _distance = [];
         private readonly ObservableCollection<ObservablePoint> _bearing = [];
@@ -215,7 +216,7 @@ namespace Sensus.Views
             var brush = (System.Windows.Media.SolidColorBrush)FindResource(resourceKey);
             var color = brush.Color;
 
-            return new SKColor(color.R, color.G, color.B, (byte)(color.A * brush.Opacity));
+            return new(color.R, color.G, color.B, (byte)(color.A * brush.Opacity));
         }
 
         #endregion
@@ -238,19 +239,7 @@ namespace Sensus.Views
 
         private void UpdateValueAxes()
         {
-            // Start with the expected distance range, then include the measurements in the current window.
-            DistanceAxes[0].MinLimit = 0;
-            DistanceAxes[0].MaxLimit = ScannerDefinition?.RangeSensor.MaxRangeCm;
-
-            foreach (var point in _distance)
-            {
-                if (point.Y is { } distance)
-                {
-                    ExpandDistanceRange(distance);
-                }
-            }
-
-            UpdateDistanceSeparators();
+            UpdateDistanceAxis();
 
             BearingAxes[0].MinLimit = ScannerConfiguration?.MinBearingDegrees;
             BearingAxes[0].MaxLimit = ScannerConfiguration?.MaxBearingDegrees;
@@ -265,6 +254,10 @@ namespace Sensus.Views
             if (axis.MinLimit is { } min && axis.MaxLimit is { } max)
             {
                 axis.CustomSeparators = [min, max];
+            }
+            else
+            {
+                axis.CustomSeparators = null;
             }
         }
 
@@ -287,20 +280,63 @@ namespace Sensus.Views
             ];
         }
 
-        private void ExpandDistanceRange(double distance)
+        private void UpdateDistanceAxis()
         {
-            if (!double.IsFinite(distance))
+            var axis = DistanceAxes[0];
+
+            if (_distance.Count == 0)
+            {
+                axis.MinLimit = 0;
+                axis.MaxLimit = ScannerDefinition?.RangeSensor.MaxRangeCm;
+
+                UpdateDistanceSeparators();
+
+                return;
+            }
+
+            var minDistanceCm = double.PositiveInfinity;
+            var maxDistanceCm = double.NegativeInfinity;
+
+            foreach (var point in _distance)
+            {
+                if (point.Y is { } distanceCm && double.IsFinite(distanceCm))
+                {
+                    minDistanceCm = Math.Min(minDistanceCm, distanceCm);
+                    maxDistanceCm = Math.Max(maxDistanceCm, distanceCm);
+                }
+            }
+
+            // Keep the last useful scale through a run of NoEcho samples.
+            if (!double.IsFinite(minDistanceCm))
             {
                 return;
             }
 
-            // Only expand the scale. Reset it when the session is cleared or rebuilt.
-            var axis = DistanceAxes[0];
-            var min = Math.Min(axis.MinLimit ?? 0, distance);
-            var max = Math.Max(axis.MaxLimit ?? distance, distance);
+            var paddingCm = Math.Max(MinimumDistancePaddingCm, (maxDistanceCm - minDistanceCm) * 0.1);
+
+            var lowerCm = Math.Max(0, minDistanceCm - paddingCm);
+            var upperCm = maxDistanceCm + paddingCm;
+
+            var approximateStepCm = (upperCm - lowerCm) / 4;
+            var magnitude = Math.Pow(10, Math.Floor(Math.Log10(approximateStepCm)));
+            var stepCm = approximateStepCm / magnitude switch
+            {
+                <= 1 => magnitude,
+                <= 2 => 2 * magnitude,
+                <= 5 => 5 * magnitude,
+                _ => 10 * magnitude
+            };
+
+            var min = Math.Floor(lowerCm / stepCm) * stepCm;
+            var max = Math.Ceiling(upperCm / stepCm) * stepCm;
             if (axis.MinLimit == min && axis.MaxLimit == max)
             {
                 return;
+            }
+
+            if (axis.MaxLimit is { } currentMax && min >= currentMax)
+            {
+                axis.MaxLimit = max;
             }
 
             axis.MinLimit = min;
@@ -439,16 +475,9 @@ namespace Sensus.Views
 
             var valid = observation.Sample.Status == SampleStatus.Valid;
             // A null Y creates a gap instead of plotting a timeout as zero distance.
-            _distance.Add(new(seconds, valid ? observation.DistanceCm : null));
+            _distance.Add(new(seconds, observation.DistanceCm));
             _bearing.Add(new(seconds, observation.Sample.BearingDegrees));
             _status.Add(new(seconds, valid ? 1 : 0));
-
-            UpdateValueAxisVisibility();
-
-            if (valid)
-            {
-                ExpandDistanceRange(observation.DistanceCm);
-            }
 
             var cutoff = Math.Max(0, seconds - WindowSeconds);
             while (_distance.Count > 0 && _distance[0].X < cutoff)
@@ -458,6 +487,8 @@ namespace Sensus.Views
                 _status.RemoveAt(0);
             }
 
+            UpdateValueAxisVisibility();
+            UpdateDistanceAxis();
             UpdateTimeWindow(seconds);
         }
 

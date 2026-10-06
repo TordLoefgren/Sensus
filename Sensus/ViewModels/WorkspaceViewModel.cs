@@ -7,7 +7,6 @@ namespace Sensus.ViewModels
     public class WorkspaceViewModel : ObservableObject
     {
         private readonly IAcquisitionService _acquisitionService;
-        private readonly ISerialConnectionService _serialConnectionService;
 
         public AcquisitionState State { get; }
         public ScannerViewModel Scanner { get; }
@@ -27,7 +26,6 @@ namespace Sensus.ViewModels
         {
             State = state;
             _acquisitionService = acquisitionService;
-            _serialConnectionService = serialConnectionService;
 
             Scanner = scannerViewModelFactory.Create(State, serialConnectionService, acquisitionService);
             Scan = scanViewModelFactory.Create(State);
@@ -43,7 +41,6 @@ namespace Sensus.ViewModels
             }
             finally
             {
-                _serialConnectionService.Dispose();
                 Scanner.Dispose();
                 Inspector.Dispose();
                 StatusBar.Dispose();

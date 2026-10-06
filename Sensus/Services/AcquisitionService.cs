@@ -1,54 +1,57 @@
 using System.IO;
 using Sensus.Models;
 using Sensus.Models.Enums;
+using Sensus.Protocol;
+using Sensus.Readers;
 
 namespace Sensus.Services
 {
     public class AcquisitionService : IAcquisitionService
     {
         private readonly AcquisitionState _state;
-        private readonly IRangeSampleReaderService _rangeSampleReaderService;
-        private readonly IRangeObservationService _rangeObservationService;
         private readonly IScannerProtocolService _scannerProtocolService;
         private readonly IScannerSimulationService _scannerSimulationService;
         private readonly ISerialConnectionService _serialConnectionService;
+        private readonly SemaphoreSlim _transitionGate = new(1, 1);
 
-        private CancellationTokenSource? _inputProcessingCancellationTokenSource;
-        private Task? _inputProcessingTask;
-        private Stream? _inputProcessingStream;
+        private volatile AcquisitionRun? _currentRun;
 
         public AcquisitionService(
             AcquisitionState state,
-            IRangeSampleReaderService rangeSampleReaderService,
-            IRangeObservationService rangeObservationService,
             IScannerProtocolService scannerProtocolService,
             IScannerSimulationService scannerSimulationService,
-            ISerialConnectionService serialConnectionService)
+            ISerialConnectionService serialConnectionService
+        )
         {
             _state = state;
-            _rangeSampleReaderService = rangeSampleReaderService;
-            _rangeObservationService = rangeObservationService;
             _scannerProtocolService = scannerProtocolService;
             _scannerSimulationService = scannerSimulationService;
             _serialConnectionService = serialConnectionService;
         }
 
-        public async Task RunSerialAsync(string portName, int baudRate)
+        public Task RunSerialAsync(string portName, int baudRate)
+            => RunAsync(() => _serialConnectionService.Open(portName, baudRate), SourceType.Serial);
+
+        public Task RunSimulationAsync(SimulationScenario scenario, ScannerConfiguration configuration)
+            => RunAsync(() => _scannerSimulationService.Create(scenario, configuration), SourceType.Simulation);
+
+        private async Task RunAsync(Func<Stream> createStream, SourceType sourceType)
         {
-            await StopAsync();
-            _serialConnectionService.Close();
+            AcquisitionRun run;
 
-            var stream = _serialConnectionService.Open(portName, baudRate);
-            await StartInputProcessing(stream, SourceType.Serial);
-        }
+            await _transitionGate.WaitAsync();
 
-        public async Task RunSimulationAsync(SimulationScenario scenario, ScannerConfiguration configuration)
-        {
-            await StopAsync();
-            _serialConnectionService.Close();
+            try
+            {
+                await StopCurrentRunAsync();
+                run = StartInputProcessing(createStream(), sourceType);
+            }
+            finally
+            {
+                _transitionGate.Release();
+            }
 
-            var stream = _scannerSimulationService.Create(scenario, configuration);
-            await StartInputProcessing(stream, SourceType.Simulation, configuration);
+            await run.ProcessingTask;
         }
 
         public void ClearSession()
@@ -61,14 +64,13 @@ namespace Sensus.Services
             _state.Session = null;
         }
 
-        private async Task ProcessInputAsync(
-            Stream stream, SourceType sourceType,
-            ScannerConfiguration? simulationConfiguration,
-            CancellationToken cancellationToken
-        )
+        private async Task ProcessInputAsync(AcquisitionRun run)
         {
             // Let the caller save the task before we continue processing.
             await Task.Yield();
+
+            var stream = run.Stream;
+            var cancellationToken = run.Cancellation.Token;
 
             try
             {
@@ -78,17 +80,16 @@ namespace Sensus.Services
                     AutoFlush = true,
                     NewLine = "\r\n"
                 };
+                run.CommandWriter = writer;
 
                 var handshake = await _scannerProtocolService.PerformHandshakeAsync(reader, writer, cancellationToken);
                 cancellationToken.ThrowIfCancellationRequested();
 
-                // The simulator's requested settings describe its generated observations.
-                // Serial sessions use the configuration returned by the handshake.
-                var session = new ScannerSession(handshake.Definition, simulationConfiguration ?? handshake.Configuration);
+                var session = new ScannerSession(handshake.Definition, handshake.Configuration);
 
                 await _scannerProtocolService.StartScannerAsync(writer, cancellationToken);
 
-                if (cancellationToken.IsCancellationRequested || !ReferenceEquals(_inputProcessingStream, stream))
+                if (cancellationToken.IsCancellationRequested || !ReferenceEquals(_currentRun, run))
                 {
                     return;
                 }
@@ -96,9 +97,21 @@ namespace Sensus.Services
                 _state.Session = session;
                 _state.SourceState = SourceState.Active;
 
-                await foreach (var sample in _rangeSampleReaderService.ReadSamplesAsync(reader, cancellationToken))
+                await foreach (
+                    var sample in RangeSampleReader.ReadSamplesAsync(
+                        reader,
+                        cancellationToken,
+                        line =>
+                        {
+                            if (line == ScannerProtocolMessages.Stopped)
+                            {
+                                run.RecordStopResponseIfRequested();
+                            }
+                        }
+                    )
+                )
                 {
-                    var observation = _rangeObservationService.CreateObservation(sample, session.Definition);
+                    var observation = RangeObservation.FromSample(sample, session.Definition);
 
                     if (!cancellationToken.IsCancellationRequested && ReferenceEquals(_state.Session, session))
                     {
@@ -114,56 +127,46 @@ namespace Sensus.Services
             }
             finally
             {
-                // Explicit stop owns cleanup once it has detached this stream. EOF and
-                // failures come through here and must release their transport as well.
-                if (ReferenceEquals(_inputProcessingStream, stream))
-                {
-                    var cancellation = _inputProcessingCancellationTokenSource;
-                    try
-                    {
-                        await CloseInputTransportAsync(stream, sourceType);
-                    }
-                    finally
-                    {
-                        if (ReferenceEquals(_inputProcessingStream, stream))
-                        {
-                            _inputProcessingStream = null;
-                            _inputProcessingTask = null;
-                            _inputProcessingCancellationTokenSource = null;
+                run.CommandWriter = null;
+                run.StopResponse.TrySetResult(false);
 
-                            _state.SourceState = SourceState.Idle;
-                            _state.SourceType = SourceType.None;
-                        }
-                        cancellation?.Dispose();
+                try
+                {
+                    await CloseInputTransportAsync(run);
+                }
+                finally
+                {
+                    if (ReferenceEquals(_currentRun, run))
+                    {
+                        _state.SourceState = SourceState.Idle;
+                        _state.SourceType = SourceType.None;
+                        _currentRun = null;
                     }
+
+                    run.Cancellation.Dispose();
                 }
             }
         }
 
-        private Task StartInputProcessing(Stream stream, SourceType sourceType, ScannerConfiguration? simulationConfiguration = null)
+        private AcquisitionRun StartInputProcessing(Stream stream, SourceType sourceType)
         {
-            _inputProcessingCancellationTokenSource = new();
-            _inputProcessingStream = stream;
+            var run = new AcquisitionRun(stream, sourceType);
+            _currentRun = run;
 
             _state.SourceType = sourceType;
             _state.SourceState = SourceState.Connecting;
 
             _state.Session = null;
 
-            _inputProcessingTask = ProcessInputAsync(stream, sourceType, simulationConfiguration, _inputProcessingCancellationTokenSource.Token);
-            return _inputProcessingTask;
+            run.ProcessingTask = ProcessInputAsync(run);
+            return run;
         }
 
-        private async Task CloseInputTransportAsync(Stream? stream, SourceType sourceType)
+        private async Task CloseInputTransportAsync(AcquisitionRun run)
         {
-            if (stream is null)
+            if (run.SourceType == SourceType.Simulation)
             {
-                return;
-            }
-
-            if (sourceType == SourceType.Simulation)
-            {
-                await stream.DisposeAsync();
+                await run.Stream.DisposeAsync();
                 return;
             }
 
@@ -172,56 +175,105 @@ namespace Sensus.Services
 
         public async Task StopAsync()
         {
-            // Snapshot the previous session to make sure cleanup cannot target the replacement.
-            var task = _inputProcessingTask;
-            var cancellationTokenSource = _inputProcessingCancellationTokenSource;
-            var stream = _inputProcessingStream;
-            var sourceType = _state.SourceType;
+            await _transitionGate.WaitAsync();
 
-            _inputProcessingTask = null;
-            _inputProcessingCancellationTokenSource = null;
-            _inputProcessingStream = null;
+            try
+            {
+                await StopCurrentRunAsync();
+            }
+            finally
+            {
+                _transitionGate.Release();
+            }
+        }
 
-            _state.SourceState = SourceState.Idle;
-            _state.SourceType = SourceType.None;
-
-            if (task is null)
+        private async Task StopCurrentRunAsync()
+        {
+            var run = _currentRun;
+            if (run is null)
             {
                 return;
             }
 
-            cancellationTokenSource?.Cancel();
+            var writer = run.CommandWriter;
+            var requestStop = _state.SourceState == SourceState.Active &&
+                writer is not null && !run.StopResponse.Task.IsCompleted;
 
             try
             {
-                if (sourceType == SourceType.Simulation)
+                if (requestStop)
                 {
+                    run.RequestStop();
+
+                    using var stopTimeout = new CancellationTokenSource(TimeSpan.FromSeconds(2));
+
                     try
                     {
-                        await task;
+                        await _scannerProtocolService.StopScannerAsync(writer!, stopTimeout.Token);
+                        if (!await run.StopResponse.Task.WaitAsync(stopTimeout.Token))
+                        {
+                            throw new EndOfStreamException("The scanner disconnected before responding to STOP.");
+                        }
                     }
-                    finally
+                    catch (OperationCanceledException ex) when (stopTimeout.IsCancellationRequested)
                     {
-                        await CloseInputTransportAsync(stream, sourceType);
-                    }
-                }
-                else
-                {
-                    try
-                    {
-                        await CloseInputTransportAsync(stream, sourceType);
-                    }
-                    finally
-                    {
-                        await task;
+                        throw new TimeoutException("Scanner STOP timed out.", ex);
                     }
                 }
             }
             finally
             {
-                cancellationTokenSource?.Dispose();
+                try
+                {
+                    run.Cancellation.Cancel();
+                }
+                catch (ObjectDisposedException)
+                {
+                    // The input task already completed and disposed its cancellation source.
+                }
+
+                try
+                {
+                    if (run.SourceType == SourceType.Serial)
+                    {
+                        // Closing the serial port unblocks a pending read.
+                        await CloseInputTransportAsync(run);
+                    }
+                }
+                finally
+                {
+                    await run.ProcessingTask;
+                }
             }
         }
 
+        private class AcquisitionRun
+        {
+            private volatile bool _stopRequested;
+
+            public Stream Stream { get; }
+            public SourceType SourceType { get; }
+            public CancellationTokenSource Cancellation { get; } = new();
+            public Task ProcessingTask { get; set; } = null!;
+            public volatile StreamWriter? CommandWriter;
+            public TaskCompletionSource<bool> StopResponse { get; } =
+                new(TaskCreationOptions.RunContinuationsAsynchronously);
+
+            public AcquisitionRun(Stream stream, SourceType sourceType)
+            {
+                Stream = stream;
+                SourceType = sourceType;
+            }
+
+            public void RequestStop() => _stopRequested = true;
+
+            public void RecordStopResponseIfRequested()
+            {
+                if (_stopRequested)
+                {
+                    StopResponse.TrySetResult(true);
+                }
+            }
+        }
     }
 }

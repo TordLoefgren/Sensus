@@ -160,44 +160,27 @@ namespace Sensus.ViewModels
 
         private void UpdateSampleDisplay(RangeSample? rangeSample)
         {
-            if (rangeSample is { } sample)
-            {
-                SequenceDisplay = $"{sample.Sequence}";
-                SweepIdDisplay = $"{sample.SweepId}";
-                ElapsedDisplay = $"{sample.ElapsedUs} μs";
-                BearingDisplay = $"{sample.BearingDegrees:F2} °";
-                RoundTripDisplay = $"{sample.RoundTripDurationUs} μs";
-                StatusDisplay = sample.Status.ToDisplayString();
-            }
-            else
-            {
-                SequenceDisplay = "-";
-                SweepIdDisplay = "-";
-                ElapsedDisplay = "-";
-                BearingDisplay = "-";
-                RoundTripDisplay = "-";
-                StatusDisplay = "-";
-            }
+            var hasSample = rangeSample.HasValue;
+            var sample = rangeSample.GetValueOrDefault();
+
+            SequenceDisplay = hasSample ? $"{sample.Sequence}" : "-";
+            SweepIdDisplay = hasSample ? $"{sample.SweepId}" : "-";
+            ElapsedDisplay = hasSample ? $"{sample.ElapsedUs} μs" : "-";
+            BearingDisplay = hasSample ? $"{sample.BearingDegrees:F2} °" : "-";
+            RoundTripDisplay = hasSample ? $"{sample.RoundTripDurationUs} μs" : "-";
+            StatusDisplay = hasSample ? sample.Status.ToDisplayString() : "-";
         }
 
         private void UpdateObservationDisplay(RangeObservation? rangeObservation)
         {
-            if (rangeObservation is { } observation)
-            {
-                ElapsedSecondsDisplay = $"{observation.ElapsedSeconds:F2} s";
-                DistanceDisplay = $"{observation.DistanceCm:F2} cm";
-                PositionXDisplay = $"{observation.PositionXCm:F2} cm";
-                PositionYDisplay = $"{observation.PositionYCm:F2} cm";
-                RangeStatusDisplay = observation.RangeStatus.ToDisplayString();
-            }
-            else
-            {
-                ElapsedSecondsDisplay = "-";
-                DistanceDisplay = "-";
-                PositionXDisplay = "-";
-                PositionYDisplay = "-";
-                RangeStatusDisplay = "-";
-            }
+            var hasObservation = rangeObservation.HasValue;
+            var observation = rangeObservation.GetValueOrDefault();
+
+            ElapsedSecondsDisplay = hasObservation ? $"{observation.ElapsedSeconds:F2} s" : "-";
+            DistanceDisplay = observation.DistanceCm is { } distance ? $"{distance:F2} cm" : "-";
+            PositionXDisplay = observation.PositionXCm is { } positionX ? $"{positionX:F2} cm" : "-";
+            PositionYDisplay = observation.PositionYCm is { } positionY ? $"{positionY:F2} cm" : "-";
+            RangeStatusDisplay = observation.RangeStatus is { } rangeStatus ? rangeStatus.ToDisplayString() : "-";
         }
 
         #endregion

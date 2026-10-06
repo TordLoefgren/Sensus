@@ -14,6 +14,9 @@ namespace Sensus.Models.Enums
         MovingSweep = 2,
 
         [Description("Limit Sweep")]
-        LimitSweep = 3
+        LimitSweep = 3,
+
+        [Description("No Echo Sweep")]
+        NoEchoSweep = 4
     }
 }

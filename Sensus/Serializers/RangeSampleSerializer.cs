@@ -2,11 +2,11 @@
 using Sensus.Models;
 using Sensus.Models.Enums;
 
-namespace Sensus.Services
+namespace Sensus.Serializers
 {
-    public class RangeSampleSerializerService : IRangeSampleSerializerService
+    public static class RangeSampleSerializer
     {
-        public string Serialize(RangeSample rangeSample)
+        public static string Serialize(RangeSample rangeSample)
         {
             return string.Concat(
                 rangeSample.Sequence.ToString(CultureInfo.InvariantCulture),
@@ -24,7 +24,7 @@ namespace Sensus.Services
             );
         }
 
-        public bool TryDeserialize(string value, out RangeSample outValue)
+        public static bool TryDeserialize(string value, out RangeSample outValue)
         {
             outValue = default;
             bool success = true;

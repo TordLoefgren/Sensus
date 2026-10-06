@@ -18,7 +18,7 @@ The Mk. 1-A scanner uses:
 
 * [HC-SR04 ultrasonic ranging sensor](<Datasheets/HC-SR04 Ultrasonic Sensor Module.pdf>)
 * [SG90 servo motor](<Datasheets/SG90 Servo Motor.pdf>)
-* [Arduino Uno R3](<Datasheets/ELEGOO UNO R3 Board.pdf>)
+* [ELEGOO UNO R3](<Datasheets/ELEGOO UNO R3 Board.pdf>)
 
 The firmware tells the servo where to point, then measures how long the sensor
 echo takes to return.
@@ -28,8 +28,8 @@ echo takes to return.
 A scanner is the complete unit responsible for orienting a sensor, initiating
 measurements, and producing samples.
 
-For the initial prototype, the scanner consists of the Arduino, servo, and
-ultrasonic sensor.
+For the initial prototype, the scanner consists of the ELEGOO UNO R3, a servo,
+and an ultrasonic sensor.
 
 ### Scanner simulation
 
@@ -84,7 +84,7 @@ relative to the scanner's forward direction.
 * `+90°` = right
 
 The reported bearing is the angle the firmware asked the servo to move to.
-The SG90 does not provide position feedback to the Arduino, so the firmware
+The SG90 does not provide position feedback to the board, so the firmware
 cannot read its actual angle.
 
 Samples and the serial protocol store the bearing in degrees as `BearingDegrees`.
@@ -158,26 +158,47 @@ input source.
 
 ### Handshake and acquisition
 
-Both serial and simulation follow the same basic conversation, using
-CRLF-terminated text lines:
+Serial and simulation use the same CRLF-terminated message format. This example
+uses the Mk. 1-A scanner's values:
 
 ```text
-Sensus  -> scanner: HELLO
-Scanner -> Sensus:  HELLO BACK
-Sensus  -> scanner: START
-Scanner -> Sensus:  sample lines
+Sensus  -> scanner: SENSUS,1,PREPARE
+Scanner -> Sensus:  SENSUS,1,DESCRIPTION
+Scanner -> Sensus:  SCANNER,Sensus Rover,Mk. 1-A
+Scanner -> Sensus:  BOARD,ELEGOO UNO R3,ATmega328
+Scanner -> Sensus:  RANGE_SENSOR,HC-SR04,2,400,15
+Scanner -> Sensus:  SERVO,SG90,180
+Scanner -> Sensus:  CONFIGURATION,-90,90,1,100,30000
+Scanner -> Sensus:  SENSUS,1,READY
+Sensus  -> scanner: SENSUS,1,START
+Scanner -> Sensus:  1,1,1250000,-90,5800,0
+Sensus  -> scanner: SENSUS,1,STOP
+Scanner -> Sensus:  SENSUS,1,STOPPED
 ```
 
-Opening a connection gives Sensus access to the transport. Receiving
-`HELLO BACK` confirms that the scanner recognizes the protocol. Sensus currently
-sends `START` automatically after this reply. Manual priming and starting are
-not implemented yet. A handshake timeout ends the connection attempt.
+Opening a connection gives Sensus access to the transport. The scanner receives
+`SENSUS,1,PREPARE` as a request to reset and return to the starting bearing.
+`SENSUS,1,DESCRIPTION` starts the handshake response. The following rows
+describe the scanner and its active configuration.
+Range values are in centimetres, angles in degrees, acquisition delay in
+milliseconds, and echo timeout in microseconds. `SENSUS,1,READY` ends the
+response after the scanner commands the starting bearing and allows time for
+the servo to settle. Sensus validates the complete response, then automatically
+sends `SENSUS,1,START`. Missing,
+malformed, or unsupported responses prevent acquisition. Manual priming and
+starting are not implemented yet. The three-second handshake timeout covers the
+entire response.
 
-In the firmware, `HELLO` resets scanner fields and disables sample output until
+In the firmware, `PREPARE` resets scanner fields and disables sample output until
 `START` is received. This is a protocol reset, not a microcontroller reboot.
+Revision 1 identifies the wire format independently of the scanner's hardware
+mark. The simulation reports its selected configuration through the same format.
 A simulation stream is created anew for each run. Connection, device, and session
-lifetimes are distinct: closing the PC connection does not send a stop command,
-and stopping acquisition does not discard the session's observations.
+lifetimes are distinct. On a normal stop or disconnect, Sensus sends `STOP` and
+waits up to two seconds for `STOPPED` before closing the connection. `STOP` halts
+sample output and resets run state. Another run requires `PREPARE`. A lost
+connection cannot deliver `STOP`. Stopping acquisition does not discard the
+session's observations.
 
 ### Range sample
 
@@ -248,7 +269,7 @@ Sequence 101: NoEcho
 Sequence 102: Valid
 ```
 
-The firmware sequence starts at one on reboot or receipt of `HELLO`. A fresh
+The firmware sequence starts at one on reboot or receipt of `PREPARE`. A fresh
 simulation enumeration also starts at one.
 
 ### Sweep ID
@@ -300,6 +321,15 @@ Initial statuses are:
 * `NoEcho`
 
 Additional statuses may be introduced later if needed.
+
+The scanner sends the status as the final field of each sample line: `0` for
+`Valid` and `1` for `NoEcho`. The simulation uses the same format. `Valid`
+indicates a returned echo. `NoEcho` indicates that no echo was detected before
+the timeout and carries a zero `RoundTripDurationUs`.
+
+Sensus keeps both kinds of samples in the timeline and inspector. It derives
+distance, position, and range state when a `Valid` sample has a nonzero
+duration. The scan plots observations with derived positions.
 
 ### Round-trip duration
 

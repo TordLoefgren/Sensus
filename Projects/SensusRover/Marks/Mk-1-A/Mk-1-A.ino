@@ -9,6 +9,16 @@ const int TRIG_PIN = 9;
 const int ECHO_PIN = 10;
 const int SERVO_PIN = 11;
 
+const int PROTOCOL_REVISION = 1;
+
+const int MIN_BEARING_DEGREES = -90;
+const int MAX_BEARING_DEGREES = 90;
+const int BEARING_STEP_DEGREES = 1;
+
+const unsigned int ACQUISITION_DELAY_MS = 100;
+const unsigned long ECHO_TIMEOUT_US = 30000UL;
+const unsigned int START_SETTLING_DELAY_MS = 500;
+
 Servo servo;
 
 bool hasHandshake = false;
@@ -17,7 +27,7 @@ bool isRunning = false;
 unsigned long sequence = 1;
 unsigned long sweepId = 1;
 unsigned long elapsedUs = 0;
-double bearingDegrees = -90;
+double bearingDegrees = MIN_BEARING_DEGREES;
 unsigned long roundTripDurationUs = 0;
 SampleStatus status = SampleStatus::Valid;
 
@@ -27,7 +37,7 @@ void resetScannerState() {
   sequence = 1;
   sweepId = 1;
   elapsedUs = 0;
-  bearingDegrees = -90;
+  bearingDegrees = MIN_BEARING_DEGREES;
   roundTripDurationUs = 0;
   status = SampleStatus::Valid;
 
@@ -39,11 +49,11 @@ void resetScannerState() {
 bool updateSweepDirection() {
   auto directionChanged = false;
 
-  if (sweepingClockwise && bearingDegrees >= 90) {
+  if (sweepingClockwise && bearingDegrees >= MAX_BEARING_DEGREES) {
     sweepingClockwise = false;
     directionChanged = true;
   }
-  if (!sweepingClockwise && bearingDegrees <= -90) {
+  if (!sweepingClockwise && bearingDegrees <= MIN_BEARING_DEGREES) {
     sweepingClockwise = true;
     directionChanged = true;
   }
@@ -73,6 +83,32 @@ void writeRangeSampleCsv(
   output.println(static_cast<int>(status));
 }
 
+void writeProtocolMessage(Print& output, const __FlashStringHelper* message) {
+  output.print(F("SENSUS,"));
+  output.print(PROTOCOL_REVISION);
+  output.print(',');
+  output.println(message);
+}
+
+void writeHandshakeResponse(Print& output) {
+  writeProtocolMessage(output, F("DESCRIPTION"));
+  output.println(F("SCANNER,Sensus Rover,Mk. 1-A"));
+  output.println(F("BOARD,ELEGOO UNO R3,ATmega328"));
+  output.println(F("RANGE_SENSOR,HC-SR04,2,400,15"));
+  output.println(F("SERVO,SG90,180"));
+  output.print(F("CONFIGURATION,"));
+  output.print(MIN_BEARING_DEGREES);
+  output.print(',');
+  output.print(MAX_BEARING_DEGREES);
+  output.print(',');
+  output.print(BEARING_STEP_DEGREES);
+  output.print(',');
+  output.print(ACQUISITION_DELAY_MS);
+  output.print(',');
+  output.println(ECHO_TIMEOUT_US);
+  writeProtocolMessage(output, F("READY"));
+}
+
 void setup() {
   Serial.begin(9600);
 
@@ -81,8 +117,8 @@ void setup() {
 
   servo.attach(SERVO_PIN);
 
-  servo.write(static_cast<int>(bearingDegrees + 90));
-  delay(500);
+  servo.write(static_cast<int>(bearingDegrees - MIN_BEARING_DEGREES));
+  delay(START_SETTLING_DELAY_MS);
 }
 
 void processIncomingCommand() {
@@ -93,17 +129,34 @@ void processIncomingCommand() {
   auto command = Serial.readStringUntil('\n');
   command.trim();
 
-  if (command == "HELLO") {
-    resetScannerState();
+  String prefix = F("SENSUS,");
+  prefix += PROTOCOL_REVISION;
+  prefix += ',';
 
-    hasHandshake = true;
-
-    Serial.println("HELLO BACK");
+  if (!command.startsWith(prefix)) {
     return;
   }
 
-  if (hasHandshake && command == "START") {
+  auto action = command.substring(prefix.length());
+
+  if (action == "PREPARE") {
+    resetScannerState();
+
+    servo.write(static_cast<int>(bearingDegrees - MIN_BEARING_DEGREES));
+    delay(START_SETTLING_DELAY_MS);
+    writeHandshakeResponse(Serial);
+    hasHandshake = true;
+    return;
+  }
+
+  if (hasHandshake && action == "START") {
     isRunning = true;
+    return;
+  }
+
+  if (action == "STOP") {
+    resetScannerState();
+    writeProtocolMessage(Serial, F("STOPPED"));
   }
 }
 
@@ -115,7 +168,7 @@ void loop() {
   }
 
   // Move to the bearing that the current sample will represent.
-  servo.write(static_cast<int>(bearingDegrees + 90));
+  servo.write(static_cast<int>(bearingDegrees - MIN_BEARING_DEGREES));
 
   // Give the servo time to reach the new position.
   delay(20);
@@ -130,7 +183,7 @@ void loop() {
   digitalWrite(TRIG_PIN, LOW);
 
   // Measure the echo pulse in microseconds, waiting up to 30 ms.
-  roundTripDurationUs = pulseIn(ECHO_PIN, HIGH, 30000);
+  roundTripDurationUs = pulseIn(ECHO_PIN, HIGH, ECHO_TIMEOUT_US);
 
   // A zero duration means no complete echo was received before the timeout.
   status = roundTripDurationUs == 0 ? SampleStatus::NoEcho : SampleStatus::Valid;
@@ -148,12 +201,12 @@ void loop() {
 
   // Advance the target bearing for the next measurement.
   sequence++;
-  bearingDegrees += sweepingClockwise ? 1.0 : -1.0;
+  bearingDegrees += sweepingClockwise ? BEARING_STEP_DEGREES : -BEARING_STEP_DEGREES;
 
   if (updateSweepDirection()) {
     sweepId++;
   }
 
   // Acquisition delay between samples, in milliseconds.
-  delay(100);
+  delay(ACQUISITION_DELAY_MS);
 }

@@ -42,8 +42,8 @@
     <SolidColorBrush x:Key="TimelineCursorBrush" Color="{StaticResource Slate11Color}" />
 
     <!--  Scan observations and coverage  -->
-    <SolidColorBrush x:Key="ScanObservationBrush" Opacity="0.55" Color="{StaticResource Slate12Color}" />
-    <SolidColorBrush x:Key="ScanObservationErrorBrush" Opacity="0.75" Color="{StaticResource Red9Color}" />
+    <SolidColorBrush x:Key="ScanObservationBrush" Opacity="0.65" Color="{StaticResource Slate12Color}" />
+    <SolidColorBrush x:Key="ScanObservationErrorBrush" Opacity="0.65" Color="{StaticResource Red9Color}" />
     <SolidColorBrush x:Key="ScanCoverageOutlineBrush" Opacity="0.65" Color="{StaticResource Grass9Color}" />
     <SolidColorBrush x:Key="ScanCoverageFillBrush" Opacity="0.10" Color="{StaticResource Grass9Color}" />
     <!--  Scan grids and foreground annotations  -->

@@ -13,7 +13,7 @@ programming**, **basic electronics**, **hardware**, and how physical devices
 integrate with desktop software through one evolving system.
 
 The early stages deliberately use inexpensive and approachable components such
-as an Arduino Uno, HC-SR04 ultrasonic sensor, and SG90 servo.
+as an ELEGOO UNO R3, HC-SR04 ultrasonic sensor, and SG90 servo.
 
 I expect to outgrow some of this hardware over time. Starting simple lets me
 concentrate on one unfamiliar problem at a time — measurement timing, serial
@@ -51,7 +51,7 @@ Work is currently focused on
 
 The first vertical slice established the path:
 
-**HC-SR04 → Arduino Uno → USB serial → Sensus → visualization**
+**HC-SR04 → ELEGOO UNO R3 → USB serial → Sensus → visualization**
 
 The desktop application now handles scanner handshakes, structured samples,
 in-memory sessions, scan visualization, and a timeline of measurement metrics.

@@ -1,7 +1,8 @@
 ﻿using System.IO;
 using System.Text;
 using Sensus.Models;
-using Sensus.Services;
+using Sensus.Protocol;
+using Sensus.Serializers;
 
 namespace Sensus.Simulation
 {
@@ -11,15 +12,17 @@ namespace Sensus.Simulation
         #region Fields and properties
 
         private readonly Func<CancellationToken, IAsyncEnumerable<RangeSample>> _simulationSource;
-        private readonly IRangeSampleSerializerService _rangeSampleSerializerService;
+        private readonly byte[] _handshakeResponse;
 
         private IAsyncEnumerator<RangeSample>? _simulationSourceEnumerator;
+        private CancellationTokenSource? _sampleCancellation;
         private bool _hasHandshake;
         private bool _isRunning;
+        private bool _resetEnumerator;
+        private bool _stopResponsePending;
 
         private byte[] _pendingBytes = [];
         private int _pendingBytesOffset;
-        private int _pendingBytesCount;
         private bool _disposed;
 
         public override bool CanRead => !_disposed;
@@ -36,11 +39,11 @@ namespace Sensus.Simulation
 
         public ScannerSimulationStream(
             Func<CancellationToken, IAsyncEnumerable<RangeSample>> simulationSource,
-            IRangeSampleSerializerService rangeSampleSerializerService
+            string handshakeResponse
         )
         {
             _simulationSource = simulationSource;
-            _rangeSampleSerializerService = rangeSampleSerializerService;
+            _handshakeResponse = Encoding.UTF8.GetBytes(handshakeResponse);
         }
 
         #region Synchronous stream operations
@@ -80,19 +83,27 @@ namespace Sensus.Simulation
             cancellationToken.ThrowIfCancellationRequested();
 
             var command = Encoding.UTF8.GetString(buffer.Span);
-            if (command == "HELLO\r\n")
+            if (command == ScannerProtocolMessages.Prepare + "\r\n")
             {
+                _resetEnumerator = true;
                 _hasHandshake = true;
                 _isRunning = false;
+                _stopResponsePending = false;
 
-                _pendingBytes = Encoding.UTF8.GetBytes("HELLO BACK\r\n");
+                _pendingBytes = _handshakeResponse;
                 _pendingBytesOffset = 0;
-                _pendingBytesCount = _pendingBytes.Length;
+                _sampleCancellation?.Cancel();
             }
-
-            if (_hasHandshake && command == "START\r\n")
+            else if (_hasHandshake && command == ScannerProtocolMessages.Start + "\r\n")
             {
                 _isRunning = true;
+            }
+            else if (command == ScannerProtocolMessages.Stop + "\r\n")
+            {
+                _hasHandshake = false;
+                _isRunning = false;
+                _stopResponsePending = true;
+                _sampleCancellation?.Cancel();
             }
 
             return ValueTask.CompletedTask;
@@ -118,37 +129,73 @@ namespace Sensus.Simulation
                 return 0;
             }
 
-            // Expose and use the enumerator directly, instead of invoking the generator directly every time.
-            _simulationSourceEnumerator ??= _simulationSource(cancellationToken).GetAsyncEnumerator(cancellationToken);
-
-            if (_pendingBytesCount == 0)
+            if (_resetEnumerator)
             {
-                if (!_isRunning)
-                {
-                    return 0;
-                }
-
-                if (!await _simulationSourceEnumerator.MoveNextAsync())
-                {
-                    return 0;
-                }
-
-                var serialized = _rangeSampleSerializerService.Serialize(_simulationSourceEnumerator.Current);
-
-                _pendingBytes = Encoding.UTF8.GetBytes(serialized);
-
-                _pendingBytesOffset = 0;
-                _pendingBytesCount = _pendingBytes.Length;
+                await ResetEnumeratorAsync();
+                _resetEnumerator = false;
             }
 
-            var readCount = Math.Min(_pendingBytesCount, buffer.Length);
+            if (_pendingBytesOffset == _pendingBytes.Length)
+            {
+                if (_stopResponsePending)
+                {
+                    await ResetEnumeratorAsync();
+
+                    QueueStopResponse();
+                }
+                else if (!_isRunning)
+                {
+                    return 0;
+                }
+                else
+                {
+                    _sampleCancellation ??= CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+                    _simulationSourceEnumerator ??= _simulationSource(_sampleCancellation.Token).GetAsyncEnumerator(_sampleCancellation.Token);
+
+                    bool hasSample;
+
+                    try
+                    {
+                        hasSample = await _simulationSourceEnumerator.MoveNextAsync();
+                    }
+                    catch (OperationCanceledException) when (_stopResponsePending || _resetEnumerator)
+                    {
+                        hasSample = false;
+                    }
+
+                    if (_resetEnumerator)
+                    {
+                        await ResetEnumeratorAsync();
+
+                        _resetEnumerator = false;
+                    }
+                    else if (_stopResponsePending)
+                    {
+                        await ResetEnumeratorAsync();
+
+                        QueueStopResponse();
+                    }
+                    else if (!hasSample)
+                    {
+                        return 0;
+                    }
+                    else
+                    {
+                        var serialized = RangeSampleSerializer.Serialize(_simulationSourceEnumerator.Current);
+
+                        _pendingBytes = Encoding.UTF8.GetBytes(serialized);
+                        _pendingBytesOffset = 0;
+                    }
+                }
+            }
+
+            var readCount = Math.Min(_pendingBytes.Length - _pendingBytesOffset, buffer.Length);
 
             _pendingBytes
                 .AsMemory(_pendingBytesOffset, readCount)
                 .CopyTo(buffer);
 
             _pendingBytesOffset += readCount;
-            _pendingBytesCount -= readCount;
 
             return readCount;
         }
@@ -157,7 +204,8 @@ namespace Sensus.Simulation
             byte[] buffer,
             int offset,
             int count,
-            CancellationToken cancellationToken)
+            CancellationToken cancellationToken
+        )
         {
             return ReadAsync(
                 buffer.AsMemory(offset, count),
@@ -168,6 +216,32 @@ namespace Sensus.Simulation
         #endregion
 
         #region IDisposable
+
+        private void QueueStopResponse()
+        {
+            _pendingBytes = Encoding.UTF8.GetBytes(ScannerProtocolMessages.Stopped + "\r\n");
+            _pendingBytesOffset = 0;
+            _stopResponsePending = false;
+        }
+
+        private async ValueTask ResetEnumeratorAsync()
+        {
+            var enumerator = _simulationSourceEnumerator;
+            _simulationSourceEnumerator = null;
+
+            try
+            {
+                if (enumerator is not null)
+                {
+                    await enumerator.DisposeAsync();
+                }
+            }
+            finally
+            {
+                _sampleCancellation?.Dispose();
+                _sampleCancellation = null;
+            }
+        }
 
         protected override void Dispose(bool disposing)
         {
@@ -188,15 +262,10 @@ namespace Sensus.Simulation
 
             _disposed = true;
 
-            var enumerator = _simulationSourceEnumerator;
-            _simulationSourceEnumerator = null;
-
             try
             {
-                if (enumerator is not null)
-                {
-                    await enumerator.DisposeAsync();
-                }
+                _sampleCancellation?.Cancel();
+                await ResetEnumeratorAsync();
             }
             finally
             {

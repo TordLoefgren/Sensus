@@ -4,7 +4,7 @@ using Sensus.Extensions;
 
 namespace Sensus.Views.Converters
 {
-    public sealed class EnumToDisplayStringConverter : IValueConverter
+    public class EnumToDisplayStringConverter : IValueConverter
     {
         public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
         {

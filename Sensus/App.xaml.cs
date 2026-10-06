@@ -1,5 +1,6 @@
 ﻿using System.Windows;
 using Microsoft.Extensions.DependencyInjection;
+using Sensus.Models;
 using Sensus.Services;
 using Sensus.ViewModels;
 using Sensus.ViewModels.Factories;
@@ -36,6 +37,9 @@ namespace Sensus
 
         private static void ConfigureServices(IServiceCollection services)
         {
+            // Workspace state.
+            services.AddSingleton<AcquisitionState>();
+
             // Application shell.
             services.AddSingleton<MainViewModel>();
             services.AddSingleton(serviceProvider => new MainWindow
@@ -51,10 +55,9 @@ namespace Sensus
             services.AddSingleton<IStatusBarViewModelFactory, StatusBarViewModelFactory>();
 
             // Services.
-            services.AddSingleton<IRangeSampleSerializerService, RangeSampleSerializerService>();
-            services.AddSingleton<IRangeObservationService, RangeObservationService>();
+            services.AddSingleton<ISerialConnectionService, SerialConnectionService>();
+            services.AddSingleton<IAcquisitionService, AcquisitionService>();
             services.AddSingleton<IScannerProtocolService, ScannerProtocolService>();
-            services.AddSingleton<IRangeSampleReaderService, RangeSampleReaderService>();
             services.AddSingleton<IScannerSimulationService, ScannerSimulationService>();
         }
     }

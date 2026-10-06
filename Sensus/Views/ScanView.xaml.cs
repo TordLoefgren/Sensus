@@ -20,11 +20,14 @@ namespace Sensus.Views
 
         private const double DefaultScanHeightCm = 500;
         private const double CoveragePaddingPixels = 32;
-        private const double MinZoom = 0.5;
-        private const double MaxZoom = 4.0;
-        private const double ZoomStep = 0.1;
+        private const double MinZoom = 1.0;
+        private const double MaxZoom = 32.0;
+        private const double ZoomFactor = 1.25;
         private const int StrokeThicknessSmall = 1;
         private const int StrokeThicknessMedium = 2;
+        private const double GridSpacingVeryFineCm = 2;
+        private const double GridSpacingExtraFineCm = 5;
+        private const double GridSpacingCloseCm = 10;
         private const double GridSpacingFineCm = 25;
         private const double GridSpacingMediumCm = 50;
         private const double GridSpacingCoarseCm = 100;
@@ -37,7 +40,8 @@ namespace Sensus.Views
         private const double PolarLabelOffsetPixels = 12;
         private const double ScannerMarkerDiameterPixels = 10;
         private const double ScannerForwardMarkerLengthPixels = 7;
-        private const double ObservationMarkerRadiusPixels = 4;
+        private const double ObservationMarkerRadiusPixels = 2.5;
+        private const double LatestObservationMarkerRadiusPixels = 4;
 
         #endregion
 
@@ -254,6 +258,8 @@ namespace Sensus.Views
         private static void OnSessionChanged(DependencyObject d, DependencyPropertyChangedEventArgs e)
         {
             var view = (ScanView)d;
+            view._zoom = MinZoom;
+
             if (!view._isRendering)
             {
                 return;
@@ -323,7 +329,10 @@ namespace Sensus.Views
             {
                 foreach (RangeObservation observation in newItems)
                 {
-                    AddObservationPoint(transform, observation);
+                    if (observation.DistanceCm.HasValue)
+                    {
+                        AddObservationPoint(transform, observation);
+                    }
                 }
             }
             else
@@ -349,10 +358,15 @@ namespace Sensus.Views
 
         private void ScanHost_MouseWheel(object sender, MouseWheelEventArgs e)
         {
-            _zoom += e.Delta > 0 ? ZoomStep : -ZoomStep;
-            _zoom = Math.Clamp(_zoom, MinZoom, MaxZoom);
+            _zoom = Math.Clamp(
+                _zoom * Math.Pow(ZoomFactor, e.Delta / 120.0),
+                MinZoom,
+                MaxZoom
+            );
 
             LayoutScanForCurrentSize();
+
+            e.Handled = true;
         }
 
         private void UpdateMousePosition(Point position)
@@ -433,8 +447,7 @@ namespace Sensus.Views
             double rangeCm,
             double minBearingDegrees,
             double maxBearingDegrees,
-            double paddingPixels,
-            double zoom
+            double paddingPixels
         )
         {
             // Include the scanner origin, both sweep endpoints, and any arc extrema.
@@ -461,7 +474,7 @@ namespace Sensus.Views
             var scaleX = coverage.Width > 0 ? (plotBounds.Width - 2 * padding) / coverage.Width : double.PositiveInfinity;
             var scaleY = coverage.Height > 0 ? (plotBounds.Height - 2 * padding) / coverage.Height : double.PositiveInfinity;
 
-            var scale = Math.Min(scaleX, scaleY) * zoom;
+            var scale = Math.Min(scaleX, scaleY);
 
             var centerX = coverage.Left + coverage.Width / 2;
             var centerY = coverage.Top + coverage.Height / 2;
@@ -491,12 +504,19 @@ namespace Sensus.Views
                 ScannerDefinition is { } definition && ScannerConfiguration is { } configuration &&
                 double.IsFinite(definition.RangeSensor.MaxRangeCm) && definition.RangeSensor.MaxRangeCm > 0 &&
                 double.IsFinite(configuration.MinBearingDegrees) && double.IsFinite(configuration.MaxBearingDegrees) &&
-                configuration.MaxBearingDegrees >= configuration.MinBearingDegrees)
+                configuration.MaxBearingDegrees >= configuration.MinBearingDegrees
+            )
             {
-                return FitCoverage(new Rect(left, top, width, height),
-                    definition.RangeSensor.MaxRangeCm, configuration.MinBearingDegrees, configuration.MaxBearingDegrees,
-                    CoveragePaddingPixels, _zoom
+                var fitted = FitCoverage(
+                    new(left, top, width, height),
+                    definition.RangeSensor.MaxRangeCm,
+                    configuration.MinBearingDegrees,
+                    configuration.MaxBearingDegrees,
+                    CoveragePaddingPixels
                 );
+
+                // We keep the scanner at its fitted screen position while changing scale.
+                return fitted with { CmToPixels = fitted.CmToPixels * _zoom };
             }
 
             var originScreenX = left + width / 2;
@@ -514,17 +534,17 @@ namespace Sensus.Views
 
         private double GetMajorGridSpacingCm()
         {
-            if (_zoom >= 2.0)
-            {
-                return GridSpacingFineCm;
-            }
+            var visibleRangeCm = (ScannerDefinition?.RangeSensor.MaxRangeCm ?? DefaultScanHeightCm) / _zoom;
 
-            if (_zoom >= 1.0)
+            return visibleRangeCm switch
             {
-                return GridSpacingMediumCm;
-            }
-
-            return GridSpacingCoarseCm;
+                <= 25 => GridSpacingVeryFineCm,
+                <= 50 => GridSpacingExtraFineCm,
+                <= 100 => GridSpacingCloseCm,
+                <= 200 => GridSpacingFineCm,
+                <= 400 => GridSpacingMediumCm,
+                _ => GridSpacingCoarseCm
+            };
         }
 
         private CartesianGridLayout CalculateCartesianGridLayout(ViewportTransform transform)
@@ -559,8 +579,11 @@ namespace Sensus.Views
         {
             EnsureElementCount(_horizontalCartesianGridLines, layout.HorizontalCount, CartesianGridLayer, CreateGridLine);
             EnsureElementCount(_verticalCartesianGridLines, layout.VerticalCount, CartesianGridLayer, CreateGridLine);
-            EnsureElementCount(_horizontalRulerLabels, layout.HorizontalCount, RulerLayer,
-                () => new TextBlock { Foreground = _scanAnnotationBrush, LayoutTransform = new RotateTransform(270) }
+            EnsureElementCount(
+                _horizontalRulerLabels,
+                layout.HorizontalCount,
+                RulerLayer,
+                () => new() { Foreground = _scanAnnotationBrush, LayoutTransform = new RotateTransform(270) }
             );
             EnsureElementCount(_verticalRulerLabels, layout.VerticalCount, RulerLayer, CreateRulerLabel);
             EnsureElementCount(_horizontalMajorTicks, layout.HorizontalCount, RulerLayer, CreateRulerTick);
@@ -838,7 +861,7 @@ namespace Sensus.Views
                 return;
             }
 
-            var rangeCm = definition.RangeSensor.MaxRangeCm;
+            var rangeCm = definition.RangeSensor.MaxRangeCm / _zoom;
 
             for (var i = 0; i < bearings.Length; i++)
             {
@@ -945,9 +968,9 @@ namespace Sensus.Views
 
         private void UpdateLatestObservationIndicator(ViewportTransform transform)
         {
-            if (Session?.LatestObservation is { } observation)
+            if (Session?.LatestObservation is { PositionXCm: { } x, PositionYCm: { } y } observation)
             {
-                ShowLatestObservationIndicator(transform, observation);
+                ShowLatestObservationIndicator(transform, observation, x, y);
             }
             else
             {
@@ -957,14 +980,16 @@ namespace Sensus.Views
 
         private void ShowLatestObservationIndicator(
             ViewportTransform transform,
-            RangeObservation observation
+            RangeObservation observation,
+            double positionXCm,
+            double positionYCm
         )
         {
             _observationLine.Visibility = Visibility.Visible;
             _observationEndpointEllipse.Visibility = Visibility.Visible;
 
-            var x = transform.WorldToScreenX(observation.PositionXCm);
-            var y = transform.WorldToScreenY(observation.PositionYCm);
+            var x = transform.WorldToScreenX(positionXCm);
+            var y = transform.WorldToScreenY(positionYCm);
 
             _observationLine.X1 = transform.OriginScreenX;
             _observationLine.Y1 = transform.OriginScreenY;
@@ -975,12 +1000,12 @@ namespace Sensus.Views
 
             _observationLine.Stroke = stroke;
 
-            _observationEndpointEllipse.Width = ObservationMarkerRadiusPixels * 2;
-            _observationEndpointEllipse.Height = ObservationMarkerRadiusPixels * 2;
+            _observationEndpointEllipse.Width = LatestObservationMarkerRadiusPixels * 2;
+            _observationEndpointEllipse.Height = LatestObservationMarkerRadiusPixels * 2;
             _observationEndpointEllipse.Fill = stroke;
 
-            Canvas.SetLeft(_observationEndpointEllipse, _observationLine.X2 - ObservationMarkerRadiusPixels);
-            Canvas.SetTop(_observationEndpointEllipse, _observationLine.Y2 - ObservationMarkerRadiusPixels);
+            Canvas.SetLeft(_observationEndpointEllipse, _observationLine.X2 - LatestObservationMarkerRadiusPixels);
+            Canvas.SetTop(_observationEndpointEllipse, _observationLine.Y2 - LatestObservationMarkerRadiusPixels);
         }
 
         private void HideLatestObservationIndicator()
@@ -996,15 +1021,23 @@ namespace Sensus.Views
         };
 
         private Brush GetObservationBrush(RangeObservation observation) =>
-            observation.Sample.Status == SampleStatus.Valid && observation.RangeStatus == RangeStatus.InRange
+            observation.RangeStatus == RangeStatus.InRange
                 ? _scanObservationBrush
                 : _scanObservationErrorBrush;
 
         private void LayoutObservationMarker(Ellipse marker, ViewportTransform transform, RangeObservation observation)
         {
+            if (observation.PositionXCm is not { } positionX || observation.PositionYCm is not { } positionY)
+            {
+                marker.Visibility = Visibility.Collapsed;
+                return;
+            }
+
+            marker.Visibility = Visibility.Visible;
             marker.Fill = GetObservationBrush(observation);
-            Canvas.SetLeft(marker, transform.WorldToScreenX(observation.PositionXCm) - ObservationMarkerRadiusPixels);
-            Canvas.SetTop(marker, transform.WorldToScreenY(observation.PositionYCm) - ObservationMarkerRadiusPixels);
+
+            Canvas.SetLeft(marker, transform.WorldToScreenX(positionX) - ObservationMarkerRadiusPixels);
+            Canvas.SetTop(marker, transform.WorldToScreenY(positionY) - ObservationMarkerRadiusPixels);
         }
 
         private void AddObservationPoint(ViewportTransform transform, RangeObservation observation)
@@ -1019,14 +1052,16 @@ namespace Sensus.Views
 
         private void LayoutObservations(ViewportTransform transform)
         {
-            var observations = Session?.Observations;
-            var count = observations?.Count ?? 0;
+            var observations = Session is { } session
+                ? session.Observations.Where(observation => observation.DistanceCm.HasValue).ToArray()
+                : [];
+            var count = observations.Length;
 
             EnsureElementCount(_observationMarkers, count, ObservationLayer, CreateObservationMarker);
 
             for (var i = 0; i < count; i++)
             {
-                LayoutObservationMarker(_observationMarkers[i], transform, observations![i]);
+                LayoutObservationMarker(_observationMarkers[i], transform, observations[i]);
             }
         }
 
@@ -1062,9 +1097,13 @@ namespace Sensus.Views
         {
             // https://learn.microsoft.com/en-us/answers/questions/400490/how-to-get-the-actual-width-of-textblock
             var formatted = new FormattedText(
-                textBlock.Text, CultureInfo.InvariantCulture, FlowDirection.LeftToRight,
-                new Typeface(textBlock.FontFamily, textBlock.FontStyle, textBlock.FontWeight, textBlock.FontStretch),
-                textBlock.FontSize, textBlock.Foreground, VisualTreeHelper.GetDpi(this).PixelsPerDip
+                textBlock.Text,
+                CultureInfo.InvariantCulture,
+                FlowDirection.LeftToRight,
+                new(textBlock.FontFamily, textBlock.FontStyle, textBlock.FontWeight, textBlock.FontStretch),
+                textBlock.FontSize,
+                textBlock.Foreground,
+                VisualTreeHelper.GetDpi(this).PixelsPerDip
             );
 
             return (formatted.Width, formatted.Height);

@@ -5,19 +5,19 @@
 Mk. 1-A establishes the first complete path from a physical measurement to
 Sensus.
 
-The first experiment read a distance from an HC-SR04 with an Arduino Uno, sent
+The first experiment read a distance from an HC-SR04 with an ELEGOO UNO R3, sent
 it over USB serial, and visualized it as a single line in Sensus. The desktop
 application now supports structured scan samples and keeps observations in
 an in-memory session. A simulation stream provides alternative input without
 hardware.
 
 This gives me a concrete system through which to learn how the **hardware**,
-**Arduino firmware**, **serial connection**, and **desktop application** fit
+**scanner firmware**, **serial connection**, and **desktop application** fit
 together, now including servo movement. Mapping remains a later step.
 
 ## First slice
 
-**HC-SR04 → Arduino Uno → USB serial → Sensus → line**
+**HC-SR04 → ELEGOO UNO R3 → USB serial → Sensus → line**
 
 The first working slice is complete. The application now separates acquisition
 services from presentation and supports scanner handshakes, sessions, angular
@@ -74,31 +74,46 @@ that cone across the scanner's 180-degree sweep.
 
 ## Serial protocol
 
-The current link uses 9600 baud and CRLF-terminated text lines:
+The current link uses 9600 baud and CRLF-terminated text lines. This example
+shows one sample:
 
 ```text
-Sensus  -> scanner: HELLO
-Scanner -> Sensus:  HELLO BACK
-Sensus  -> scanner: START
-Scanner -> Sensus:  sequence,sweepId,elapsedUs,bearingDegrees,roundTripDurationUs,status
+Sensus  -> scanner: SENSUS,1,PREPARE
+Scanner -> Sensus:  SENSUS,1,DESCRIPTION
+Scanner -> Sensus:  SCANNER,Sensus Rover,Mk. 1-A
+Scanner -> Sensus:  BOARD,ELEGOO UNO R3,ATmega328
+Scanner -> Sensus:  RANGE_SENSOR,HC-SR04,2,400,15
+Scanner -> Sensus:  SERVO,SG90,180
+Scanner -> Sensus:  CONFIGURATION,-90,90,1,100,30000
+Scanner -> Sensus:  SENSUS,1,READY
+Sensus  -> scanner: SENSUS,1,START
+Scanner -> Sensus:  1,1,1250000,-90,5800,0
+Sensus  -> scanner: SENSUS,1,STOP
+Scanner -> Sensus:  SENSUS,1,STOPPED
 ```
 
-Sensus waits up to three seconds for the handshake reply, then sends `START`
-automatically. The firmware accepts `HELLO` while running: it resets scanner
-fields and pauses output until another `START`. There is no stop command yet.
-Disconnecting closes the PC connection. It does not send a command to
-stop the firmware.
+Mk. 1-A uses scanner protocol revision 1. The `SENSUS,1,` prefix identifies that
+revision. Angles are in degrees, sensor range in centimetres, acquisition
+delay in milliseconds, and echo timeout in microseconds. After `PREPARE`, the
+firmware returns the servo to the starting bearing and waits 500 ms before
+sending the response. Sensus waits up to three seconds for the complete
+response through `READY`, validates it, then sends `START` automatically. The
+firmware accepts `PREPARE` while running. It resets scanner fields and pauses
+output until another `START`. `STOP` ends acquisition and returns `STOPPED`,
+including when repeated. Sensus waits up to two seconds for that
+acknowledgement before closing the connection. A fresh run requires
+another `PREPARE`.
 
 See [Concepts](../../../../Docs/concepts.md) for sample fields, units, and session
 lifetime. Manual priming, calibration, and separate start controls are future work.
 
 ## Scope
 
-Mk. 1-A will explore:
+Mk. 1-A covers:
 
 - GPIO and pulse timing
 - HC-SR04 measurements and invalid echoes
-- Arduino firmware and flashing
+- firmware and flashing the ELEGOO UNO R3
 - UART and USB serial
 - Windows COM ports
 - message framing

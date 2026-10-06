@@ -23,24 +23,25 @@ The project develops the **hardware, embedded firmware, and desktop software**
 together through small, progressively more capable experiments.
 
 The current project is [**Sensus Rover**](Projects/SensusRover/README.md),
-beginning with a simple Arduino-based ultrasonic scanner and gradually
-introducing wireless communication, motion, networking, and spatial mapping.
+beginning with an ultrasonic scanner built around an ELEGOO UNO R3. Later stages
+introduce wireless communication, motion, networking, and spatial mapping.
 
 ## Current Snapshot
 
 Sensus is in active development, with work focused on
 [**Mk. 1-A — Wired scanner**](Projects/SensusRover/Marks/Mk-1-A/README.md).
-The application accepts structured range samples over USB serial or from a
-simulation stream. Both sources use the same handshake and async processing
-path. Each acquisition session keeps its observations in memory and displays
-the scan points, the latest observation, and sample details in the inspector.
+Sensus displays range measurements from the wired scanner over USB or from a
+desktop simulation. The workspace shows the scan, a timeline, and details of
+the latest observation.
 
-Connecting performs a basic handshake and automatically starts acquisition.
-The status bar shows the source state, and connection failures appear in the
-scanner panel. Stopping preserves the session. Starting a new run replaces it.
+When Sensus connects to a scanner, it completes a handshake and starts
+acquisition automatically.
+The status bar shows whether Sensus is idle, connecting, or active. Connection
+errors appear in the scanner panel. Stopping leaves the session available for
+inspection. Starting a new run replaces it.
 
-The Arduino firmware reads real HC-SR04 echo durations and reports missing echoes.
-The servo turns the sensor through a sweep. Samples report the requested bearing. Use the desktop simulation to explore synthetic scan patterns.
+The ELEGOO UNO R3 firmware commands the servo through a sweep and sends HC-SR04
+measurements, including missing echoes, over USB.
 
 The full progression from scanner to rover is described in the
 [**Sensus Rover roadmap**](Projects/SensusRover/README.md#progression).

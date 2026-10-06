@@ -226,6 +226,65 @@ namespace Sensus.Simulation
             }
         }
 
+        public static async IAsyncEnumerable<RangeSample> NoEchoRangeSweep(
+            ScannerConfiguration scannerConfiguration,
+            [EnumeratorCancellation] CancellationToken cancellationToken
+        )
+        {
+            // Flip the status on return so the end interval does not hold one status twice.
+            const int intervalCount = 5;
+            uint sequence = 1;
+            uint sweepId = 1;
+
+            double bearingDegrees = scannerConfiguration.MinBearingDegrees;
+            bool sweepingClockwise = true;
+            var intervalDegrees = (scannerConfiguration.MaxBearingDegrees - scannerConfiguration.MinBearingDegrees) / intervalCount;
+
+            var stopwatch = Stopwatch.StartNew();
+
+            while (true)
+            {
+                await Task.Delay((int)scannerConfiguration.AcquisitionDelayMs, cancellationToken);
+
+                var currentSequence = sequence;
+                var currentSweepId = sweepId;
+                var currentBearingDegrees = bearingDegrees;
+                var interval = Math.Clamp(
+                    (int)((currentBearingDegrees - scannerConfiguration.MinBearingDegrees) / intervalDegrees),
+                    0,
+                    intervalCount - 1
+                );
+                var status = (interval % 2 == 0) == sweepingClockwise
+                    ? SampleStatus.Valid
+                    : SampleStatus.NoEcho;
+
+                // Update
+                sequence++;
+
+                if (sweepingClockwise && bearingDegrees >= scannerConfiguration.MaxBearingDegrees)
+                {
+                    sweepingClockwise = false;
+                    sweepId++;
+                }
+                else if (!sweepingClockwise && bearingDegrees <= scannerConfiguration.MinBearingDegrees)
+                {
+                    sweepingClockwise = true;
+                    sweepId++;
+                }
+
+                bearingDegrees += scannerConfiguration.BearingStepDegrees * (sweepingClockwise ? 1 : -1);
+
+                yield return new(
+                    currentSequence,
+                    currentSweepId,
+                    GetElapsedMicroseconds(stopwatch),
+                    currentBearingDegrees,
+                    status == SampleStatus.Valid ? 14_000u : 0u,
+                    status
+                );
+            }
+        }
+
         public static Func<CancellationToken, IAsyncEnumerable<RangeSample>> Create(
             SimulationScenario scenario,
             ScannerConfiguration scannerConfiguration
@@ -244,6 +303,9 @@ namespace Sensus.Simulation
 
                 SimulationScenario.LimitSweep => cancellationToken =>
                     LimitRangeSweep(scannerConfiguration, cancellationToken),
+
+                SimulationScenario.NoEchoSweep => cancellationToken =>
+                    NoEchoRangeSweep(scannerConfiguration, cancellationToken),
 
                 _ => throw new ArgumentOutOfRangeException(nameof(scenario))
             };

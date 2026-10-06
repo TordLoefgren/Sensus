@@ -1,6 +1,6 @@
 namespace Sensus.Models
 {
-    public readonly record struct ScannerHandshakeResult(
+    public readonly record struct ScannerHandshakeResponse(
         ScannerDefinition Definition,
         ScannerConfiguration Configuration
     );
