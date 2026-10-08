@@ -21,7 +21,7 @@
         <Grid x:Name="PlotLayers" IsHitTestVisible="False">
             <Canvas x:Name="CoverageLayer" />
             <Canvas x:Name="CartesianGridLayer" />
-            <Canvas x:Name="PolarGridLayer" />
+            <Canvas x:Name="BearingGridLayer" />
             <Canvas x:Name="ObservationLayer" />
             <Canvas x:Name="IndicatorLayer" />
             <Canvas x:Name="AnnotationLayer" />

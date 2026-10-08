@@ -23,7 +23,7 @@ namespace Sensus.Simulation
             uint roundTripDurationUs = 14_000;
 
             double bearingDegrees = scannerConfiguration.MinBearingDegrees;
-            bool sweepingClockwise = true;
+            bool increasingBearing = true;
 
             var stopwatch = Stopwatch.StartNew();
 
@@ -38,18 +38,18 @@ namespace Sensus.Simulation
                 // Update
                 sequence++;
 
-                if (sweepingClockwise && bearingDegrees >= scannerConfiguration.MaxBearingDegrees)
+                if (increasingBearing && bearingDegrees >= scannerConfiguration.MaxBearingDegrees)
                 {
-                    sweepingClockwise = false;
+                    increasingBearing = false;
                     sweepId++;
                 }
-                else if (!sweepingClockwise && bearingDegrees <= scannerConfiguration.MinBearingDegrees)
+                else if (!increasingBearing && bearingDegrees <= scannerConfiguration.MinBearingDegrees)
                 {
-                    sweepingClockwise = true;
+                    increasingBearing = true;
                     sweepId++;
                 }
 
-                bearingDegrees += scannerConfiguration.BearingStepDegrees * (sweepingClockwise ? 1 : -1);
+                bearingDegrees += scannerConfiguration.BearingStepDegrees * (increasingBearing ? 1 : -1);
 
                 yield return new(
                     currentSequence,
@@ -72,7 +72,7 @@ namespace Sensus.Simulation
 
             double bearingDegrees = scannerConfiguration.MinBearingDegrees;
 
-            bool sweepingClockwise = true;
+            bool increasingBearing = true;
 
             var stopwatch = Stopwatch.StartNew();
 
@@ -90,18 +90,18 @@ namespace Sensus.Simulation
                 // Update
                 sequence++;
 
-                if (sweepingClockwise && bearingDegrees >= scannerConfiguration.MaxBearingDegrees)
+                if (increasingBearing && bearingDegrees >= scannerConfiguration.MaxBearingDegrees)
                 {
-                    sweepingClockwise = false;
+                    increasingBearing = false;
                     sweepId++;
                 }
-                else if (!sweepingClockwise && bearingDegrees <= scannerConfiguration.MinBearingDegrees)
+                else if (!increasingBearing && bearingDegrees <= scannerConfiguration.MinBearingDegrees)
                 {
-                    sweepingClockwise = true;
+                    increasingBearing = true;
                     sweepId++;
                 }
 
-                bearingDegrees += scannerConfiguration.BearingStepDegrees * (sweepingClockwise ? 1 : -1);
+                bearingDegrees += scannerConfiguration.BearingStepDegrees * (increasingBearing ? 1 : -1);
 
                 yield return new(
                     currentSequence,
@@ -124,7 +124,7 @@ namespace Sensus.Simulation
             uint roundTripDurationUs = 10_000;
 
             double bearingDegrees = scannerConfiguration.MinBearingDegrees;
-            bool sweepingClockwise = true;
+            bool increasingBearing = true;
 
             var stopwatch = Stopwatch.StartNew();
 
@@ -140,15 +140,15 @@ namespace Sensus.Simulation
                 // Update
                 sequence++;
 
-                if (sweepingClockwise && bearingDegrees >= scannerConfiguration.MaxBearingDegrees)
+                if (increasingBearing && bearingDegrees >= scannerConfiguration.MaxBearingDegrees)
                 {
-                    sweepingClockwise = false;
+                    increasingBearing = false;
                     sweepId++;
                     roundTripDurationUs += 2_000;
                 }
-                else if (!sweepingClockwise && bearingDegrees <= scannerConfiguration.MinBearingDegrees)
+                else if (!increasingBearing && bearingDegrees <= scannerConfiguration.MinBearingDegrees)
                 {
-                    sweepingClockwise = true;
+                    increasingBearing = true;
                     sweepId++;
                     roundTripDurationUs += 2_000;
                 }
@@ -158,7 +158,7 @@ namespace Sensus.Simulation
                     roundTripDurationUs = 10_000;
                 }
 
-                bearingDegrees += scannerConfiguration.BearingStepDegrees * (sweepingClockwise ? 1 : -1);
+                bearingDegrees += scannerConfiguration.BearingStepDegrees * (increasingBearing ? 1 : -1);
 
                 yield return new(
                     currentSequence,
@@ -181,7 +181,7 @@ namespace Sensus.Simulation
             uint roundTripDurationUs = 22_000;
 
             double bearingDegrees = scannerConfiguration.MinBearingDegrees;
-            bool sweepingClockwise = true;
+            bool increasingBearing = true;
 
             var stopwatch = Stopwatch.StartNew();
 
@@ -196,14 +196,14 @@ namespace Sensus.Simulation
                 // Update
                 sequence++;
 
-                if (sweepingClockwise && bearingDegrees >= scannerConfiguration.MaxBearingDegrees)
+                if (increasingBearing && bearingDegrees >= scannerConfiguration.MaxBearingDegrees)
                 {
-                    sweepingClockwise = false;
+                    increasingBearing = false;
                     sweepId++;
                 }
-                else if (!sweepingClockwise && bearingDegrees <= scannerConfiguration.MinBearingDegrees)
+                else if (!increasingBearing && bearingDegrees <= scannerConfiguration.MinBearingDegrees)
                 {
-                    sweepingClockwise = true;
+                    increasingBearing = true;
                     sweepId++;
                 }
 
@@ -213,7 +213,7 @@ namespace Sensus.Simulation
                     roundTripDurationUs = 22_000;
                 }
 
-                bearingDegrees += scannerConfiguration.BearingStepDegrees * (sweepingClockwise ? 1 : -1);
+                bearingDegrees += scannerConfiguration.BearingStepDegrees * (increasingBearing ? 1 : -1);
 
                 yield return new(
                     currentSequence,
@@ -237,7 +237,7 @@ namespace Sensus.Simulation
             uint sweepId = 1;
 
             double bearingDegrees = scannerConfiguration.MinBearingDegrees;
-            bool sweepingClockwise = true;
+            bool increasingBearing = true;
             var intervalDegrees = (scannerConfiguration.MaxBearingDegrees - scannerConfiguration.MinBearingDegrees) / intervalCount;
 
             var stopwatch = Stopwatch.StartNew();
@@ -254,25 +254,25 @@ namespace Sensus.Simulation
                     0,
                     intervalCount - 1
                 );
-                var status = (interval % 2 == 0) == sweepingClockwise
+                var status = (interval % 2 == 0) == increasingBearing
                     ? SampleStatus.Valid
                     : SampleStatus.NoEcho;
 
                 // Update
                 sequence++;
 
-                if (sweepingClockwise && bearingDegrees >= scannerConfiguration.MaxBearingDegrees)
+                if (increasingBearing && bearingDegrees >= scannerConfiguration.MaxBearingDegrees)
                 {
-                    sweepingClockwise = false;
+                    increasingBearing = false;
                     sweepId++;
                 }
-                else if (!sweepingClockwise && bearingDegrees <= scannerConfiguration.MinBearingDegrees)
+                else if (!increasingBearing && bearingDegrees <= scannerConfiguration.MinBearingDegrees)
                 {
-                    sweepingClockwise = true;
+                    increasingBearing = true;
                     sweepId++;
                 }
 
-                bearingDegrees += scannerConfiguration.BearingStepDegrees * (sweepingClockwise ? 1 : -1);
+                bearingDegrees += scannerConfiguration.BearingStepDegrees * (increasingBearing ? 1 : -1);
 
                 yield return new(
                     currentSequence,

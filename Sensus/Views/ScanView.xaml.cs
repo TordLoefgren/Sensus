@@ -36,8 +36,8 @@ namespace Sensus.Views
         private const double RulerThicknessPixels = 30;
         private const double RulerEdgePaddingPixels = 8;
         private const double RulerLabelGapPixels = 8;
-        private const double PolarBearingStepDegrees = 30;
-        private const double PolarLabelOffsetPixels = 12;
+        private const double BearingGridStepDegrees = 30;
+        private const double BearingLabelOffsetPixels = 12;
         private const double ScannerMarkerDiameterPixels = 10;
         private const double ScannerForwardMarkerLengthPixels = 7;
         private const double ObservationMarkerRadiusPixels = 2.5;
@@ -78,10 +78,10 @@ namespace Sensus.Views
         private readonly Line _rulerBorderLineDiagonal;
         private readonly Rectangle _canvasBorderRectangle;
 
-        // Polar grid lines and foreground labels.
+        // Bearing grid lines and foreground labels.
 
-        private readonly List<Line> _polarBearingLines = [];
-        private readonly List<TextBlock> _polarBearingLabels = [];
+        private readonly List<Line> _bearingGridLines = [];
+        private readonly List<TextBlock> _bearingLabels = [];
 
         // Observations, coverage, and scanner indicators.
 
@@ -421,7 +421,7 @@ namespace Sensus.Views
             LayoutCartesianGridLines(transform, gridLayout);
             LayoutRulers(transform, gridLayout);
 
-            LayoutPolarGrid(transform);
+            LayoutBearingGrid(transform);
             LayoutScannerCoverage(transform);
             LayoutScannerMarker(transform);
 
@@ -468,7 +468,7 @@ namespace Sensus.Views
                 IncludeBearing(firstCardinal + i * 90);
             }
 
-            // Leave room for polar labels and markers, even in a small panel.
+            // Leave room for bearing labels and markers, even in a small panel.
             var padding = Math.Min(paddingPixels, Math.Min(plotBounds.Width, plotBounds.Height) / 4);
 
             var scaleX = coverage.Width > 0 ? (plotBounds.Width - 2 * padding) / coverage.Width : double.PositiveInfinity;
@@ -800,23 +800,23 @@ namespace Sensus.Views
 
         #endregion
 
-        #region Polar Grid and Labels
+        #region Bearing Grid and Labels
 
-        private IEnumerable<double> GetPolarGridBearings()
+        private IEnumerable<double> GetBearingGridBearings()
         {
             if (ScannerConfiguration is not { } configuration)
             {
                 yield break;
             }
 
-            var firstBearing = Math.Ceiling(configuration.MinBearingDegrees / PolarBearingStepDegrees) * PolarBearingStepDegrees;
-            for (var bearing = firstBearing; bearing <= configuration.MaxBearingDegrees; bearing += PolarBearingStepDegrees)
+            var firstBearing = Math.Ceiling(configuration.MinBearingDegrees / BearingGridStepDegrees) * BearingGridStepDegrees;
+            for (var bearing = firstBearing; bearing <= configuration.MaxBearingDegrees; bearing += BearingGridStepDegrees)
             {
                 yield return bearing;
             }
         }
 
-        private void LayoutPolarBearingLabel(
+        private void LayoutBearingLabel(
             ViewportTransform transform,
             TextBlock label,
             double bearingDegrees,
@@ -842,8 +842,8 @@ namespace Sensus.Views
             directionX /= length;
             directionY /= length;
 
-            var labelX = endpoint.X + directionX * PolarLabelOffsetPixels;
-            var labelY = endpoint.Y + directionY * PolarLabelOffsetPixels;
+            var labelX = endpoint.X + directionX * BearingLabelOffsetPixels;
+            var labelY = endpoint.Y + directionY * BearingLabelOffsetPixels;
 
             var (labelWidth, labelHeight) = GetTextBlockSize(label);
 
@@ -851,11 +851,11 @@ namespace Sensus.Views
             Canvas.SetTop(label, labelY - labelHeight / 2);
         }
 
-        private void LayoutPolarGrid(ViewportTransform transform)
+        private void LayoutBearingGrid(ViewportTransform transform)
         {
-            var bearings = ScannerDefinition is not null ? GetPolarGridBearings().ToArray() : [];
-            EnsureElementCount(_polarBearingLines, bearings.Length, PolarGridLayer, CreateGridLine);
-            EnsureElementCount(_polarBearingLabels, bearings.Length, AnnotationLayer, CreateRulerLabel);
+            var bearings = ScannerDefinition is not null ? GetBearingGridBearings().ToArray() : [];
+            EnsureElementCount(_bearingGridLines, bearings.Length, BearingGridLayer, CreateGridLine);
+            EnsureElementCount(_bearingLabels, bearings.Length, AnnotationLayer, CreateRulerLabel);
             if (ScannerDefinition is not { } definition)
             {
                 return;
@@ -866,7 +866,7 @@ namespace Sensus.Views
             for (var i = 0; i < bearings.Length; i++)
             {
                 var bearing = bearings[i];
-                _polarBearingLabels[i].Text = $"{bearing:0}°";
+                _bearingLabels[i].Text = $"{bearing:0}°";
 
                 var endpoint = GetScreenPointAtBearing(
                     transform,
@@ -874,16 +874,16 @@ namespace Sensus.Views
                     rangeCm
                 );
 
-                var line = _polarBearingLines[i];
+                var line = _bearingGridLines[i];
 
                 line.X1 = transform.OriginScreenX;
                 line.Y1 = transform.OriginScreenY;
                 line.X2 = endpoint.X;
                 line.Y2 = endpoint.Y;
 
-                LayoutPolarBearingLabel(
+                LayoutBearingLabel(
                     transform,
-                    _polarBearingLabels[i],
+                    _bearingLabels[i],
                     bearing,
                     rangeCm
                 );
