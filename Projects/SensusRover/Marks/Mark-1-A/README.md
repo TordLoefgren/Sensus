@@ -1,8 +1,8 @@
-# Mk. 1-A — Wired scanner
+# Mark 1-A — Wired scanner
 
 **Status:** In progress
 
-Mk. 1-A establishes the first complete path from a physical measurement to
+Mark 1-A establishes the first complete path from a physical measurement to
 Sensus.
 
 The first experiment read a distance from an HC-SR04 with an ELEGOO UNO R3, sent
@@ -38,7 +38,7 @@ scan visualization, and a timeline of measurement metrics.
 - The status bar shows `Idle`, `Connecting`, or `Active`. Connection errors,
   including handshake timeouts, appear in the scanner panel.
 
-The [firmware](Mk-1-A.ino) measures HC-SR04 echo pulses with a 30 ms timeout and
+The [firmware](Mark-1-A.ino) measures HC-SR04 echo pulses with a 30 ms timeout and
 reports `NoEcho` when no complete pulse is received. It adds a 100 ms delay after
 each sample. Measurement and serial transmission take additional time.
 
@@ -80,7 +80,7 @@ shows one sample:
 ```text
 Sensus  -> scanner: SENSUS,1,PREPARE
 Scanner -> Sensus:  SENSUS,1,DESCRIPTION
-Scanner -> Sensus:  SCANNER,Sensus Rover,Mk. 1-A
+Scanner -> Sensus:  SCANNER,Sensus Rover,Mark 1-A
 Scanner -> Sensus:  BOARD,ELEGOO UNO R3,ATmega328
 Scanner -> Sensus:  RANGE_SENSOR,HC-SR04,2,400,15
 Scanner -> Sensus:  SERVO,SG90,180
@@ -92,7 +92,7 @@ Sensus  -> scanner: SENSUS,1,STOP
 Scanner -> Sensus:  SENSUS,1,STOPPED
 ```
 
-Mk. 1-A uses scanner protocol revision 1. The `SENSUS,1,` prefix identifies that
+Mark 1-A uses scanner protocol revision 1. The `SENSUS,1,` prefix identifies that
 revision. Angles are in degrees, sensor range in centimetres, acquisition
 delay in milliseconds, and echo timeout in microseconds. After `PREPARE`, the
 firmware returns the servo to the starting bearing and waits 500 ms before
@@ -109,7 +109,7 @@ lifetime. Manual priming, calibration, and separate start controls are future wo
 
 ## Scope
 
-Mk. 1-A covers:
+Mark 1-A covers:
 
 - GPIO and pulse timing
 - HC-SR04 measurements and invalid echoes

@@ -8,7 +8,7 @@ namespace Sensus.Tests.Serializers
     {
         private const string Response =
             "SENSUS,1,DESCRIPTION\r\n" +
-            "SCANNER,Sensus Rover,Mk. 1-A\r\n" +
+            "SCANNER,Sensus Rover,Mark 1-A\r\n" +
             "BOARD,ELEGOO UNO R3,ATmega328\r\n" +
             "RANGE_SENSOR,HC-SR04,2,400,15\r\n" +
             "SERVO,SG90,180\r\n" +
@@ -20,7 +20,7 @@ namespace Sensus.Tests.Serializers
             return new(
                 new(
                     "Sensus Rover",
-                    "Mk. 1-A",
+                    "Mark 1-A",
                     new("ELEGOO UNO R3", "ATmega328"),
                     new("HC-SR04", 2, 400, 15),
                     new("SG90", 180)
@@ -160,8 +160,8 @@ namespace Sensus.Tests.Serializers
             yield return [Response.Replace("SENSUS,1,READY\r\n", string.Empty)];
             yield return [Response.Replace("SENSUS,1,READY", "SENSUS,1,START")];
             yield return [Response.Replace("BOARD,ELEGOO UNO R3,ATmega328\r\n", string.Empty)];
-            yield return [Response.Replace("BOARD,ELEGOO UNO R3,ATmega328", "SCANNER,Sensus Rover,Mk. 1-A")];
-            yield return [Response.Replace("SCANNER,Sensus Rover,Mk. 1-A\r\nBOARD,ELEGOO UNO R3,ATmega328", "BOARD,ELEGOO UNO R3,ATmega328\r\nSCANNER,Sensus Rover,Mk. 1-A")];
+            yield return [Response.Replace("BOARD,ELEGOO UNO R3,ATmega328", "SCANNER,Sensus Rover,Mark 1-A")];
+            yield return [Response.Replace("SCANNER,Sensus Rover,Mark 1-A\r\nBOARD,ELEGOO UNO R3,ATmega328", "BOARD,ELEGOO UNO R3,ATmega328\r\nSCANNER,Sensus Rover,Mark 1-A")];
             yield return [Response.Replace("SERVO,SG90,180", "SERVO,SG90")];
             yield return [Response.Replace("SERVO,SG90,180", "SERVO,SG90,180,extra")];
             yield return [Response.Replace("Sensus Rover", " ")];

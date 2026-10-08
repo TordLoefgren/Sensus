@@ -127,7 +127,7 @@ void writeProtocolMessage(Print& output, const __FlashStringHelper* message) {
 
 void writeHandshakeResponse(Print& output) {
   writeProtocolMessage(output, F("DESCRIPTION"));
-  output.println(F("SCANNER,Sensus Rover,Mk. 1-A"));
+  output.println(F("SCANNER,Sensus Rover,Mark 1-A"));
   output.println(F("BOARD,ELEGOO UNO R3,ATmega328"));
   output.println(F("RANGE_SENSOR,HC-SR04,2,400,15"));
   output.println(F("SERVO,SG90,180"));

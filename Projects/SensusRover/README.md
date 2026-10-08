@@ -26,7 +26,7 @@ that the next stage can build on.
 
 ## Progression
 
-**Mk. 1** is the first generation of the Rover. Its A/B/C stages evolve the same
+**Mark 1** is the first generation of the Rover. Its A/B/C stages evolve the same
 basic scanner from a tethered experiment into a mobile platform.
 
 Later generations replace larger parts of the system as the earlier experiments
@@ -34,11 +34,11 @@ make those changes meaningful.
 
 | Mark | New boundary | Direction |
 | --- | --- | --- |
-| [**Mk. 1-A — Wired scanner**](Marks/Mk-1-A/README.md) | Physical measurement + USB serial | Receive and visualize real range observations. |
-| **Mk. 1-B — Wireless scanner** | Portable power + wireless link | Remove the USB tether without changing the basic measurement model. |
-| **Mk. 1-C — Rover** | Motion + drive control | Put the scanner on a small mobile platform, control it from Sensus, and record and replay scan sessions. |
-| **Mk. 2 — Wi-Fi rover** | IP networking | Replace the serial-like wireless link with a real network transport. |
-| **Mk. 3 — Integrated controller** | Embedded architecture | Move measurement, control, and networking onto one more capable controller. |
+| [**Mark 1-A — Wired scanner**](Marks/Mark-1-A/README.md) | Physical measurement + USB serial | Receive and visualize real range observations. |
+| **Mark 1-B — Wireless scanner** | Portable power + wireless link | Remove the USB tether without changing the basic measurement model. |
+| **Mark 1-C — Rover** | Motion + drive control | Put the scanner on a small mobile platform, control it from Sensus, and record and replay scan sessions. |
+| **Mark 2 — Wi-Fi rover** | IP networking | Replace the serial-like wireless link with a real network transport. |
+| **Mark 3 — Integrated controller** | Embedded architecture | Move measurement, control, and networking onto one more capable controller. |
 
 Later directions include encoder-based motion estimates, localization, cameras,
 and richer range sensors. Accurate mapping can wait until motion and its errors
@@ -47,7 +47,7 @@ are understood.
 ## Current mark
 
 Work is currently focused on
-[**Mk. 1-A — Wired scanner**](Marks/Mk-1-A/README.md).
+[**Mark 1-A — Wired scanner**](Marks/Mark-1-A/README.md).
 
 The first vertical slice established the path:
 

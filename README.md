@@ -29,7 +29,7 @@ introduce wireless communication, motion, networking, and spatial mapping.
 ## Current Snapshot
 
 Sensus is in active development, with work focused on
-[**Mk. 1-A — Wired scanner**](Projects/SensusRover/Marks/Mk-1-A/README.md).
+[**Mark 1-A — Wired scanner**](Projects/SensusRover/Marks/Mark-1-A/README.md).
 Sensus displays range measurements from the wired scanner over USB or from a
 desktop simulation. The workspace shows the scan, a timeline, and details of
 the latest observation.

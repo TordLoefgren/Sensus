@@ -10,7 +10,7 @@ namespace Sensus.Tests.Services
     {
         private const string HandshakeResponse =
             "SENSUS,1,DESCRIPTION\r\n" +
-            "SCANNER,Sensus Rover,Mk. 1-A\r\n" +
+            "SCANNER,Sensus Rover,Mark 1-A\r\n" +
             "BOARD,ELEGOO UNO R3,ATmega328\r\n" +
             "RANGE_SENSOR,HC-SR04,2,400,15\r\n" +
             "SERVO,SG90,180\r\n" +

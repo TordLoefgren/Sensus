@@ -10,7 +10,7 @@ namespace Sensus.Services
     {
         private static readonly ScannerDefinition SimulationDefinition = new(
             "Sensus Rover Simulation",
-            "Mk. 1-A",
+            "Mark 1-A",
             new("Simulated UNO R3", "ATmega328"),
             new("Simulated HC-SR04", 2.0, 400.0, 15.0),
             new("Simulated SG90", 180.0)

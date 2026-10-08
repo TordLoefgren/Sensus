@@ -5,7 +5,7 @@ conventions. It provides a shared vocabulary for the application and its code.
 Open questions, proposed changes, and decision discussions are tracked in
 GitHub issues.
 
-The terminology below describes the current Mk. 1-A software and its intended
+The terminology below describes the current Mark 1-A software and its intended
 hardware model. Future concepts are identified separately. Sample structures,
 field names, and conventions may still change as the experiments establish what
 is needed.
@@ -14,7 +14,7 @@ is needed.
 
 ### Hardware
 
-The Mk. 1-A scanner uses:
+The Mark 1-A scanner uses:
 
 * [HC-SR04 ultrasonic ranging sensor](<Datasheets/HC-SR04 Ultrasonic Sensor Module.pdf>)
 * [SG90 servo motor](<Datasheets/SG90 Servo Motor.pdf>)
@@ -130,7 +130,7 @@ A session represents one acquisition run and owns the observations produced
 during that run. It is independent of the lifetime of the source that produced
 the data.
 
-For Mk. 1-A, a new session is created automatically after the handshake succeeds,
+For Mark 1-A, a new session is created automatically after the handshake succeeds,
 just before the application sends `START`.
 Stopping or disconnecting the source ends acquisition but does not destroy the
 session. Its observations remain available in memory for inspection and
@@ -159,12 +159,12 @@ input source.
 ### Handshake and acquisition
 
 Serial and simulation use the same CRLF-terminated message format. This example
-uses the Mk. 1-A scanner's values:
+uses the Mark 1-A scanner's values:
 
 ```text
 Sensus  -> scanner: SENSUS,1,PREPARE
 Scanner -> Sensus:  SENSUS,1,DESCRIPTION
-Scanner -> Sensus:  SCANNER,Sensus Rover,Mk. 1-A
+Scanner -> Sensus:  SCANNER,Sensus Rover,Mark 1-A
 Scanner -> Sensus:  BOARD,ELEGOO UNO R3,ATmega328
 Scanner -> Sensus:  RANGE_SENSOR,HC-SR04,2,400,15
 Scanner -> Sensus:  SERVO,SG90,180
@@ -383,7 +383,7 @@ instead produce a frame containing many range measurements.
 
 ## Future terminology — occupancy grids
 
-Occupancy grids are planned for a later stage, after Mk. 1-A. These definitions
+Occupancy grids are planned for a later stage, after Mark 1-A. These definitions
 describe the intended conventions for that work. No grid model is implemented
 in the current application.
 
