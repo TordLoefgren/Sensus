@@ -8,6 +8,6 @@
         uint EchoTimeoutUs
     )
     {
-        public static ScannerConfiguration Default => new(-90.0, 90.0, 5.0, 60, 30_000);
+        public static ScannerConfiguration Default => new(-80.0, 80.0, 5.0, 60, 30_000);
     }
 }
