@@ -71,6 +71,7 @@ namespace Sensus.Tests.Services
 
             // Assert.
             Assert.Equal("Sensus Rover", handshake.Definition.Name);
+            Assert.Equal("Mark 1-A", handshake.Definition.Mark);
             Assert.Equal("ATmega328", handshake.Definition.MicrocontrollerBoard.Microcontroller);
             Assert.Equal(400, handshake.Definition.RangeSensor.MaxRangeCm);
             Assert.Equal(new ScannerConfiguration(-90, 90, 1, 100, 30_000), handshake.Configuration);
@@ -138,6 +139,7 @@ namespace Sensus.Tests.Services
 
             // Assert.
             Assert.Equal("Sensus Rover Simulation", handshake.Definition.Name);
+            Assert.Equal("Mark 1-A", handshake.Definition.Mark);
             Assert.Equal(configuration, handshake.Configuration);
 
             // Act.

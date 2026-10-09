@@ -1,0 +1,50 @@
+<mxfile host="app.diagrams.net">
+  <diagram name="Page-1" id="dKbx664HapcJympU53_S">
+    <mxGraphModel dx="618" dy="573" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="60" pageHeight="160" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <mxCell id="LNu3s_mCIdvsukc3RlYS-1" edge="1" parent="1" source="LNu3s_mCIdvsukc3RlYS-2" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;" target="LNu3s_mCIdvsukc3RlYS-6">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="440" y="200" />
+              <mxPoint x="440" y="240" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="LNu3s_mCIdvsukc3RlYS-2" parent="1" style="rounded=1;whiteSpace=wrap;html=1;glass=0;shadow=1;" value="Physical scanner" vertex="1">
+          <mxGeometry height="40" width="120" x="280" y="180" as="geometry" />
+        </mxCell>
+        <mxCell id="LNu3s_mCIdvsukc3RlYS-3" edge="1" parent="1" source="LNu3s_mCIdvsukc3RlYS-4" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;" target="LNu3s_mCIdvsukc3RlYS-6">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="440" y="280" />
+              <mxPoint x="440" y="240" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="LNu3s_mCIdvsukc3RlYS-4" parent="1" style="rounded=1;whiteSpace=wrap;html=1;glass=0;shadow=1;" value="Scanner simulation" vertex="1">
+          <mxGeometry height="40" width="120" x="280" y="260" as="geometry" />
+        </mxCell>
+        <mxCell id="LNu3s_mCIdvsukc3RlYS-5" edge="1" parent="1" source="LNu3s_mCIdvsukc3RlYS-6" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;" target="LNu3s_mCIdvsukc3RlYS-8">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="LNu3s_mCIdvsukc3RlYS-6" parent="1" style="rounded=1;whiteSpace=wrap;html=1;glass=0;shadow=1;" value="Acquisition" vertex="1">
+          <mxGeometry height="40" width="100" x="480" y="220" as="geometry" />
+        </mxCell>
+        <mxCell id="LNu3s_mCIdvsukc3RlYS-7" edge="1" parent="1" source="LNu3s_mCIdvsukc3RlYS-8" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;" target="LNu3s_mCIdvsukc3RlYS-9">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="LNu3s_mCIdvsukc3RlYS-8" parent="1" style="rounded=1;whiteSpace=wrap;html=1;glass=0;shadow=1;" value="Session" vertex="1">
+          <mxGeometry height="40" width="100" x="600" y="220" as="geometry" />
+        </mxCell>
+        <mxCell id="LNu3s_mCIdvsukc3RlYS-9" parent="1" style="rounded=1;whiteSpace=wrap;html=1;glass=0;shadow=1;" value="Workspace views" vertex="1">
+          <mxGeometry height="40" width="120" x="720" y="220" as="geometry" />
+        </mxCell>
+        <mxCell id="LNu3s_mCIdvsukc3RlYS-10" parent="1" style="rounded=1;whiteSpace=wrap;html=1;glass=0;shadow=1;fillColor=none;verticalAlign=top;fontSize=18;labelBorderColor=none;textShadow=0;fontColor=default;opacity=30;" value="Sensus" vertex="1">
+          <mxGeometry height="120" width="400" x="460" y="180" as="geometry" />
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

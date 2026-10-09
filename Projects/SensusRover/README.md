@@ -1,71 +1,108 @@
 # Sensus Rover
 
-**Sensus Rover** is the first physical project built around Sensus.
-
-It starts with a wired ultrasonic scanner, makes the same scanner wireless, and
-eventually puts it on a small LEGO rover. Each stage introduces a new engineering
-boundary while preserving the measurement and visualization work from the previous one.
+**Sensus Rover** is a staged physical project built around Sensus. Mark 1 is its
+first generation. Mark 1-A built a wired ultrasonic scanner, and Mark 1-B will
+give it Bluetooth communication and portable power. Mark 1-C will integrate the
+scanner with a mobile platform, becoming the first stage that is physically a
+rover. Mark 2 will explore Wi-Fi. Later marks can take on more embedded control,
+localization, and mapping.
 
 ## About
 
-I am building Sensus Rover to develop a practical understanding of **embedded
-programming**, **basic electronics**, **hardware**, and how physical devices
-integrate with desktop software through one evolving system.
+I started Sensus Rover because I wanted a project where software has to
+interact with something physical. Before Sensus, I knew some basic circuit
+theory and had worked with concepts such as breadboards, LEDs, and resistors,
+partly through CircuitBench. I had barely built real circuits, though, and had
+not meaningfully used a microcontroller board.
 
-The early stages deliberately use inexpensive and approachable components such
-as an ELEGOO UNO R3, HC-SR04 ultrasonic sensor, and SG90 servo.
+I can move much faster in application software than in electronics. Building
+in stages lets me start each one with a working system and add a limited
+amount of new learning friction. My goal is to understand each stage well
+enough to build on it, not to reach a polished or sophisticated rover quickly.
 
-I expect to outgrow some of this hardware over time. Starting simple lets me
-concentrate on one unfamiliar problem at a time — measurement timing, serial
-communication, power, wireless communication, motors, networking, and eventually
-localization — before introducing the next layer.
+I am also studying electronics fundamentals separately. Sensus gives me a
+place to apply what I learn, but the project alone will not build that
+foundation for me.
 
-The goal is not to reach the final rover as quickly as possible. Each stage
-should leave me with a better understanding of the system and something concrete
-that the next stage can build on.
+The hardware reflects that approach. Mark 1-A uses inexpensive kit components,
+breadboards, cardboard, painter's tape, and a makeshift sensor and servo
+mounting. It only needs to be stable enough for the experiments. Cleaner
+circuits, better components, or purpose-built mounts can come when they solve
+a problem I have actually encountered.
+
+<p align="center">
+  <img
+    src="Assets/mark-1-a-overview.jpg"
+    alt="Overview of the Mark 1-A scanner for Sensus Rover connected to the development PC."
+    width="900">
+</p>
+
+<p align="center"><i>
+The Mark 1-A development setup, currently held together with cardboard and
+painter's tape.
+</i></p>
 
 ## Progression
 
-**Mark 1** is the first generation of the Rover. Its A/B/C stages evolve the same
-basic scanner from a tethered experiment into a mobile platform.
+Within Mark 1, stages A, B, and C lead toward the first complete rover. The
+scanner remains a subsystem that could also serve another physical platform.
+Later marks can change larger parts of the system when experience with earlier
+stages gives me a reason to do so.
 
-Later generations replace larger parts of the system as the earlier experiments
-make those changes meaningful.
+| Step | Status | New boundary | Direction |
+| --- | --- | --- | --- |
+| [**Mark 1-A: Wired scanner**](Marks/Mark-1-A/README.md) | **Complete** | Physical measurement + USB serial | Receive and visualize real range observations. |
+| **Mark 1-B: Bluetooth scanner** | Next | Bluetooth communication + portable power | Record and replay sessions while retaining the scanner model. |
+| **Mark 1-C: Rover** | Planned | Motion + drive control | Use the scanner and replay infrastructure while adding rover movement. |
+| **Mark 2: Wi-Fi rover** | Planned | Wi-Fi network communication | Connect to the rover over a network. |
+| **Mark 3: Integrated controller** | Planned | Embedded control | Move more control and coordination into the embedded system. |
 
-| Mark | New boundary | Direction |
-| --- | --- | --- |
-| [**Mark 1-A — Wired scanner**](Marks/Mark-1-A/README.md) | Physical measurement + USB serial | Receive and visualize real range observations. |
-| **Mark 1-B — Wireless scanner** | Portable power + wireless link | Remove the USB tether without changing the basic measurement model. |
-| **Mark 1-C — Rover** | Motion + drive control | Put the scanner on a small mobile platform, control it from Sensus, and record and replay scan sessions. |
-| **Mark 2 — Wi-Fi rover** | IP networking | Replace the serial-like wireless link with a real network transport. |
-| **Mark 3 — Integrated controller** | Embedded architecture | Move measurement, control, and networking onto one more capable controller. |
+Later directions include localization, cameras, and improved ranging sensors.
+More advanced mapping can wait until I better understand how the rover moves
+and how to track its position over time.
 
-Later directions include encoder-based motion estimates, localization, cameras,
-and richer range sensors. Accurate mapping can wait until motion and its errors
-are understood.
+## Current state
 
-## Current mark
+Mark 1-A produced a servo-driven ultrasonic scanner that sends range samples
+over USB serial. Sensus uses a scanner handshake to learn its configuration,
+then receives measurements through the same acquisition pipeline used by the
+simulation. Each run creates a session for the scan view, measurement timeline,
+and latest-sample inspector.
 
-Work is currently focused on
-[**Mark 1-A — Wired scanner**](Marks/Mark-1-A/README.md).
+The [**Mark 1-A README**](Marks/Mark-1-A/README.md) documents the circuit, scanner
+protocol, setup, and detailed reflection.
 
-The first vertical slice established the path:
+## Why simulation is part of the project
 
-**HC-SR04 → ELEGOO UNO R3 → USB serial → Sensus → visualization**
+My main motivation for adding simulation was to keep working on Sensus without
+connecting the hardware every time. It has also become a way to design and
+test scanner integration before the physical hardware needs to support it.
+The scanner and simulation feed the same acquisition pipeline, so I can
+experiment with the application while the hardware is unavailable or changing.
 
-The desktop application now handles scanner handshakes, structured samples,
-in-memory sessions, scan visualization, and a timeline of measurement metrics.
-The firmware drives the servo and sends HC-SR04 echo durations over USB serial.
-A desktop simulation provides several scan scenarios without hardware.
-Mounting the sensor on the servo and documenting the complete working scanner
-are the next steps.
+## Visualization direction
 
-## Starting hardware
+Building Mark 1-A made a distinction clearer to me: showing what the scanner
+measures and building a map answer different questions. A scanner view describes
+coverage and measurements relative to the scanner. A map will need to place
+observations in the world as the rover moves.
 
-- [ELEGOO UNO R3 board](<../../Docs/Datasheets/ELEGOO UNO R3 Board.pdf>)
-- [HC-SR04 ultrasonic sensor](<../../Docs/Datasheets/HC-SR04 Ultrasonic Sensor Module.pdf>)
-- [SG90 servo](<../../Docs/Datasheets/SG90 Servo Motor.pdf>)
-- Breadboard and jumper wires
-- USB connection to the development PC
+The current scan view still mixes these responsibilities. It retains the
+session's observations and combines scanner-oriented and map-like elements,
+including a bearing grid, Cartesian grid, rulers, and accumulated
+measurements. That is fine for Mark 1-A because recognizing the distinction is
+the useful result for now. A future map view can separate world-relative
+aggregation from the scanner-relative display when motion makes it necessary.
 
-The hardware will change when a limitation gives me a reason to change it.
+## Next stage: Mark 1-B
+
+Mark 1-B will retain the UNO R3 and replace the physical USB connection with an
+HC-06 Bluetooth serial link and portable power. The scanner will no longer need
+a USB cable to the development PC. I also plan to add session recording and
+replay. Replay will be especially useful once the rover moves, so I want that
+infrastructure in place before Mark 1-C concentrates on understanding,
+controlling, and visualizing motion.
+
+Bluetooth may let Sensus reuse its existing serial transport through a virtual
+COM port. I expect connection lifecycle and portable operation to be the main
+new concerns in Mark 1-B, but that transport compatibility remains unverified.

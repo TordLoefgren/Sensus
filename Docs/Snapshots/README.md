@@ -9,15 +9,18 @@ browse without archiving every small iteration.
 
 ## Current preview
 
-[2026-09-30 - Scan and timeline](../../snapshot.png) shows scanner coverage,
-collected observations, and distance, bearing, and status charts.
+[2026-10-09: Live physical scan](../../snapshot.png): live measurements from the
+physical scanner visualized in Sensus, with scan coverage and a timeline of
+distance, bearing, and sample status.
 
 ## Archive
 
-- [2026-09-15 — Workspace shell](2026-09-15-workspace-shell.png) — the
+- [2026-09-15: Workspace shell](2026-09-15-workspace-shell.png): the
   workspace before sensor visualization was added.
-- [2026-09-18 — Range visualization](2026-09-18-range-visualization.png) — live
+- [2026-09-18: Range visualization](2026-09-18-range-visualization.png): live
   serial and simulated range inputs rendered through the shared visualization
   path.
-- [2026-09-23 — Scan visualization](2026-09-23-scan-visualization.png) — the
+- [2026-09-23: Scan visualization](2026-09-23-scan-visualization.png): the
   scanner panel, collected scan points, and sample and observation inspector.
+- [2026-09-30: Scan and timeline](2026-09-30-scan-and-timeline.png): scanner
+  coverage, collected observations, and distance, bearing, and status charts.
